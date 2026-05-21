@@ -1,0 +1,58 @@
+# ── Web framework ─────────────────────────────────────────────
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+gunicorn==23.0.0
+python-multipart==0.0.18
+
+# ── Database ──────────────────────────────────────────────────
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+psycopg2-binary==2.9.10
+
+# ── Redis ─────────────────────────────────────────────────────
+redis[hiredis]==5.2.1
+
+# ── Celery ────────────────────────────────────────────────────
+celery[redis]==5.4.0
+kombu==5.4.2
+
+# ── Validation & settings ────────────────────────────────────
+pydantic==2.10.3
+pydantic-settings==2.6.1
+email-validator==2.2.0
+
+# ── Auth & security ───────────────────────────────────────────
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-jose[cryptography]==3.3.0
+
+# ── Storage ───────────────────────────────────────────────────
+minio==7.2.11
+
+# ── Logging ───────────────────────────────────────────────────
+structlog==24.4.0
+
+# ── Monitoring ────────────────────────────────────────────────
+sentry-sdk[fastapi,celery,redis,sqlalchemy]==2.19.2
+prometheus-fastapi-instrumentator==7.0.0
+
+# ── HTTP client ───────────────────────────────────────────────
+httpx==0.28.1
+
+# ── QR code ───────────────────────────────────────────────────
+qrcode[pil]==8.0
+Pillow==11.0.0
+
+# ── Utilities ─────────────────────────────────────────────────
+python-dateutil==2.9.0.post0
+pytz==2024.2
+orjson==3.10.12
+
+# ── Dev / test ────────────────────────────────────────────────
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+httpx==0.28.1
+factory-boy==3.3.1
+faker==33.1.0
