@@ -9,6 +9,7 @@ import AssetCreatePage from '@/pages/assets/AssetCreatePage'
 import UsersPage from '@/pages/users/UsersPage'
 import OnboardingPage from '@/pages/onboarding/OnboardingPage'
 import OnboardingDetailPage from '@/pages/onboarding/OnboardingDetailPage'
+import OnboardingCreatePage from '@/pages/onboarding/OnboardingCreatePage'
 import AssignmentsPage from '@/pages/assignments/AssignmentsPage'
 import MaintenancePage from '@/pages/maintenance/MaintenancePage'
 import MyAssetsPage from '@/pages/assignments/MyAssetsPage'
@@ -69,6 +70,11 @@ export default function AppRoutes() {
         <Route path="/onboarding" element={
           <RequireRole roles={['coo', 'hr', 'it_head', 'management']}>
             <OnboardingPage />
+          </RequireRole>
+        } />
+        <Route path="/onboarding/new" element={
+          <RequireRole roles={['coo', 'hr']}>
+            <OnboardingCreatePage />
           </RequireRole>
         } />
         <Route path="/onboarding/:id" element={

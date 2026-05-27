@@ -31,13 +31,15 @@ class OnboardingRequest(AuditableBase):
         ),
     )
 
-    # The new employee this request is for
-    employee_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="RESTRICT"),
-        nullable=False,
-        index=True,
-    )
+    # ── Free-form new joiner details (filled by HR) ───────────
+    employee_name: Mapped[str] = mapped_column(String(150), nullable=False)
+    employee_emp_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    employee_email: Mapped[str] = mapped_column(String(150), nullable=False)
+    employee_phone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    employee_designation: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    employee_department: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # ── Workflow actors ───────────────────────────────────────
     # HR who raised the request
     requested_by_id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -52,7 +54,7 @@ class OnboardingRequest(AuditableBase):
     )
 
     status: Mapped[str] = mapped_column(
-        String(30), nullable=False, default="draft", index=True
+        String(30), nullable=False, default="pending_approval", index=True
     )
 
     # JSON list of asset requirements
@@ -75,11 +77,6 @@ class OnboardingRequest(AuditableBase):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # ── Relationships ─────────────────────────────────────────
-    employee: Mapped["User"] = relationship(
-        "User",
-        foreign_keys=[employee_id],
-        back_populates="onboarding_requests_for",
-    )
     requested_by: Mapped["User"] = relationship(
         "User",
         foreign_keys=[requested_by_id],
@@ -90,4 +87,4 @@ class OnboardingRequest(AuditableBase):
     )
 
     def __repr__(self) -> str:
-        return f"<OnboardingRequest employee={self.employee_id} status={self.status}>"
+        return f"<OnboardingRequest employee={self.employee_emp_id} status={self.status}>"

@@ -9,7 +9,7 @@ import DataTable from '@/components/shared/DataTable'
 import { OnboardingStatusBadge } from '@/components/shared/StatusBadge'
 import { formatDate } from '@/lib/utils'
 
-const STATUSES = ['pending_approval', 'approved', 'rejected', 'in_progress', 'completed']
+const STATUSES = ['draft', 'pending_approval', 'approved', 'rejected', 'in_progress', 'completed']
 
 export default function OnboardingPage() {
   const { user } = useAuthStore()
@@ -45,7 +45,7 @@ export default function OnboardingPage() {
         >
           <option value="">All Statuses</option>
           {STATUSES.map((s) => (
-            <option key={s} value={s}>{s.replace('_', ' ')}</option>
+            <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
           ))}
         </select>
       </div>
@@ -62,8 +62,18 @@ export default function OnboardingPage() {
             header: 'Employee',
             render: (row) => (
               <div>
-                <p className="font-medium text-sm">{row.employee.full_name}</p>
-                <p className="text-xs text-gray-400">{row.employee.emp_id}</p>
+                <p className="font-medium text-sm">{row.employee_name}</p>
+                <p className="text-xs text-gray-400">{row.employee_emp_id}</p>
+              </div>
+            ),
+          },
+          {
+            key: 'designation',
+            header: 'Role / Dept',
+            render: (row) => (
+              <div>
+                <p className="text-sm">{row.employee_designation || '—'}</p>
+                <p className="text-xs text-gray-400">{row.employee_department || ''}</p>
               </div>
             ),
           },
@@ -84,17 +94,12 @@ export default function OnboardingPage() {
           {
             key: 'join_date',
             header: 'Join Date',
-            render: (row) => <span className="text-sm">{formatDate(row.join_date)}</span>,
+            render: (row) => <span className="text-sm">{row.join_date ? formatDate(row.join_date) : '—'}</span>,
           },
           {
             key: 'status',
             header: 'Status',
             render: (row) => <OnboardingStatusBadge status={row.status} />,
-          },
-          {
-            key: 'created',
-            header: 'Created',
-            render: (row) => <span className="text-sm text-gray-400">{formatDate(row.created_at)}</span>,
           },
           {
             key: 'actions',

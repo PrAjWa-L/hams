@@ -22,10 +22,15 @@ export const onboardingApi = {
   },
 
   create: async (payload: {
-    employee_id: string
-    asset_requirements: Array<{ category: string; domain: string; quantity: number; notes?: string }>
+    employee_name: string
+    employee_emp_id: string
+    employee_email: string
+    employee_phone?: string
+    employee_designation?: string
+    employee_department?: string
     join_date?: string
     notes?: string
+    asset_requirements: Array<{ category: string; domain: string; quantity: number; notes?: string }>
   }) => {
     const { data } = await api.post<APIResponse<OnboardingRequest>>('/onboarding', payload)
     return data.data!

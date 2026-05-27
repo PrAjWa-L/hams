@@ -42,17 +42,17 @@ export default function OnboardingDetailPage() {
   if (!req) return <p>Not found</p>
 
   const isCOO = user?.role === 'coo'
-  const canAllocate = ['it_head', 'management'].includes(user?.role ?? '')
+  const canComplete = ['it_head', 'management'].includes(user?.role ?? '') && ['approved', 'in_progress'].includes(req.status)
   const canApprove = isCOO && req.status === 'pending_approval'
-  const canComplete = canAllocate && ['approved', 'in_progress'].includes(req.status)
 
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link to="/onboarding" className="btn-ghost p-2"><ArrowLeft size={18} /></Link>
         <div className="flex-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold">Onboarding Request</h1>
+            <h1 className="text-xl font-semibold">{req.employee_name}</h1>
             <OnboardingStatusBadge status={req.status} />
           </div>
           <p className="text-sm text-gray-500">Created {formatDateTime(req.created_at)}</p>
@@ -79,34 +79,62 @@ export default function OnboardingDetailPage() {
       </div>
 
       <div className="grid grid-cols-3 gap-6">
-        {/* Employee info */}
+        {/* New joiner info */}
         <div className="card p-5 space-y-3">
-          <h3 className="font-medium text-gray-900 text-sm">Employee</h3>
-          <div>
-            <p className="font-semibold">{req.employee.full_name}</p>
-            <p className="text-sm text-gray-500">{req.employee.emp_id}</p>
-            <p className="text-sm text-gray-500">{req.employee.email}</p>
-          </div>
-          {req.join_date && (
+          <h3 className="font-medium text-gray-900 text-sm">New Joiner</h3>
+          <div className="space-y-2">
             <div>
-              <p className="text-xs text-gray-400">Join Date</p>
-              <p className="text-sm font-medium">{formatDate(req.join_date)}</p>
+              <p className="text-xs text-gray-400">Name</p>
+              <p className="text-sm font-medium">{req.employee_name}</p>
             </div>
-          )}
+            <div>
+              <p className="text-xs text-gray-400">Employee ID</p>
+              <p className="text-sm font-medium">{req.employee_emp_id}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">Email</p>
+              <p className="text-sm font-medium">{req.employee_email}</p>
+            </div>
+            {req.employee_phone && (
+              <div>
+                <p className="text-xs text-gray-400">Phone</p>
+                <p className="text-sm font-medium">{req.employee_phone}</p>
+              </div>
+            )}
+            {req.employee_designation && (
+              <div>
+                <p className="text-xs text-gray-400">Designation</p>
+                <p className="text-sm font-medium">{req.employee_designation}</p>
+              </div>
+            )}
+            {req.employee_department && (
+              <div>
+                <p className="text-xs text-gray-400">Department</p>
+                <p className="text-sm font-medium">{req.employee_department}</p>
+              </div>
+            )}
+            {req.join_date && (
+              <div>
+                <p className="text-xs text-gray-400">Join Date</p>
+                <p className="text-sm font-medium">{formatDate(req.join_date)}</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Request info */}
         <div className="card p-5 space-y-3">
           <h3 className="font-medium text-gray-900 text-sm">Request Info</h3>
           <div>
-            <p className="text-xs text-gray-400">Requested By</p>
+            <p className="text-xs text-gray-400">Raised By</p>
             <p className="text-sm font-medium">{req.requested_by.full_name}</p>
+            <p className="text-xs text-gray-400">{req.requested_by.role}</p>
           </div>
           {req.approved_by && (
             <div>
               <p className="text-xs text-gray-400">Approved By</p>
               <p className="text-sm font-medium">{req.approved_by.full_name}</p>
-              <p className="text-xs text-gray-400">{formatDateTime(req.approved_at)}</p>
+              <p className="text-xs text-gray-400">{req.approved_at ? formatDateTime(req.approved_at) : ''}</p>
             </div>
           )}
           {req.rejection_reason && (
@@ -120,7 +148,7 @@ export default function OnboardingDetailPage() {
         {/* Notes */}
         <div className="card p-5">
           <h3 className="font-medium text-gray-900 text-sm mb-3">Notes</h3>
-          <p className="text-sm text-gray-600">{req.notes || '—'}</p>
+          <p className="text-sm text-gray-600 whitespace-pre-wrap">{req.notes || '—'}</p>
         </div>
       </div>
 
@@ -155,7 +183,7 @@ export default function OnboardingDetailPage() {
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Reason for rejection..."
+              placeholder="Reason for rejection…"
               className="input mb-4"
               rows={3}
             />

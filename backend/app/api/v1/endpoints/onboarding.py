@@ -49,14 +49,14 @@ async def list_onboarding(
     current_user: AuthUser,
     db: AsyncSession = Depends(get_db),
     status: str | None = Query(None),
-    employee_id: UUID | None = Query(None),
+    search: str | None = Query(None),
 ):
     svc = OnboardingService(db)
     items, total = await svc.list_requests(
         offset=pagination.offset,
         limit=pagination.limit,
         status=status,
-        employee_id=employee_id,
+        search=search,
     )
     return PagedResponse.build(
         items=[OnboardingResponse.model_validate(i) for i in items],

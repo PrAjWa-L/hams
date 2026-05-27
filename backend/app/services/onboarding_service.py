@@ -12,7 +12,6 @@ from app.core.exceptions import BadRequestException, ForbiddenException, NotFoun
 from app.core.logging import get_logger
 from app.core.rbac import Role
 from app.models.onboarding_request import OnboardingRequest
-from app.models.user import User
 from app.schemas.onboarding import (
     OnboardingApproveRequest,
     OnboardingCreateRequest,
@@ -23,7 +22,6 @@ from app.services.audit_service import AuditService
 logger = get_logger(__name__)
 
 _LOAD_OPTS = [
-    selectinload(OnboardingRequest.employee),
     selectinload(OnboardingRequest.requested_by),
     selectinload(OnboardingRequest.approved_by),
 ]
@@ -34,35 +32,21 @@ class OnboardingService:
         self.db = db
         self.audit = AuditService(db)
 
-    # ── Create (HR) ───────────────────────────────────────────
+    # ── Create (HR / COO) ─────────────────────────────────────
 
     async def create(
         self, data: OnboardingCreateRequest, actor_id: UUID, actor_role: str
     ) -> OnboardingRequest:
         if actor_role not in (Role.HR, Role.COO):
-            raise ForbiddenException(detail="Only HR can create onboarding requests")
-
-        # Verify employee exists
-        emp = await self.db.get(User, data.employee_id)
-        if not emp:
-            raise NotFoundException(detail="Employee not found")
-
-        # Check no active request exists for this employee
-        existing = await self.db.execute(
-            select(OnboardingRequest).where(
-                OnboardingRequest.employee_id == data.employee_id,
-                OnboardingRequest.status.in_(
-                    ["draft", "pending_approval", "approved", "in_progress"]
-                ),
-            )
-        )
-        if existing.scalar_one_or_none():
-            raise BadRequestException(
-                detail="An active onboarding request already exists for this employee"
-            )
+            raise ForbiddenException(detail="Only HR or COO can create onboarding requests")
 
         req = OnboardingRequest(
-            employee_id=data.employee_id,
+            employee_name=data.employee_name,
+            employee_emp_id=data.employee_emp_id,
+            employee_email=str(data.employee_email),
+            employee_phone=data.employee_phone,
+            employee_designation=data.employee_designation,
+            employee_department=data.employee_department,
             requested_by_id=actor_id,
             status="pending_approval",
             asset_requirements=[r.model_dump() for r in data.asset_requirements],
@@ -77,7 +61,11 @@ class OnboardingService:
             entity_type="onboarding_request",
             entity_id=req.id,
             action="create",
-            after_state={"employee_id": str(data.employee_id), "status": "pending_approval"},
+            after_state={
+                "employee_emp_id": data.employee_emp_id,
+                "employee_name": data.employee_name,
+                "status": "pending_approval",
+            },
         )
         logger.info("onboarding_created", request_id=str(req.id))
         return await self._load(req.id)
@@ -145,7 +133,7 @@ class OnboardingService:
         logger.info("onboarding_rejected", request_id=str(request_id))
         return await self._load(req.id)
 
-    # ── Mark complete (IT Head / Management) ──────────────────
+    # ── Mark complete (IT Head) ───────────────────────────────
 
     async def mark_complete(self, request_id: UUID, actor_id: UUID) -> OnboardingRequest:
         req = await self._get_or_raise(request_id)
@@ -174,10 +162,9 @@ class OnboardingService:
         offset: int = 0,
         limit: int = 20,
         status: Optional[str] = None,
-        employee_id: Optional[UUID] = None,
-        requested_by_id: Optional[UUID] = None,
+        search: Optional[str] = None,
     ) -> tuple[Sequence[OnboardingRequest], int]:
-        from sqlalchemy import func
+        from sqlalchemy import func, or_
 
         query = select(OnboardingRequest).options(*_LOAD_OPTS)
         count_query = select(func.count(OnboardingRequest.id))
@@ -185,12 +172,16 @@ class OnboardingService:
         if status:
             query = query.where(OnboardingRequest.status == status)
             count_query = count_query.where(OnboardingRequest.status == status)
-        if employee_id:
-            query = query.where(OnboardingRequest.employee_id == employee_id)
-            count_query = count_query.where(OnboardingRequest.employee_id == employee_id)
-        if requested_by_id:
-            query = query.where(OnboardingRequest.requested_by_id == requested_by_id)
-            count_query = count_query.where(OnboardingRequest.requested_by_id == requested_by_id)
+
+        if search:
+            pattern = f"%{search}%"
+            condition = or_(
+                OnboardingRequest.employee_name.ilike(pattern),
+                OnboardingRequest.employee_emp_id.ilike(pattern),
+                OnboardingRequest.employee_email.ilike(pattern),
+            )
+            query = query.where(condition)
+            count_query = count_query.where(condition)
 
         total = (await self.db.execute(count_query)).scalar_one()
         query = query.order_by(OnboardingRequest.created_at.desc()).offset(offset).limit(limit)

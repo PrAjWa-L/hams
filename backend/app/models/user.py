@@ -60,11 +60,6 @@ class User(AuditableBase, SoftDeleteMixin):
         foreign_keys="OnboardingRequest.requested_by_id",
         back_populates="requested_by",
     )
-    onboarding_requests_for: Mapped[List["OnboardingRequest"]] = relationship(
-        "OnboardingRequest",
-        foreign_keys="OnboardingRequest.employee_id",
-        back_populates="employee",
-    )
     audit_logs: Mapped[List["AuditLog"]] = relationship("AuditLog", back_populates="actor")
     documents: Mapped[List["Document"]] = relationship("Document", back_populates="uploaded_by")
 

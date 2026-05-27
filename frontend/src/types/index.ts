@@ -165,7 +165,14 @@ export interface AssetRequirement {
 
 export interface OnboardingRequest {
   id: string
-  employee: Pick<User, 'id' | 'emp_id' | 'full_name' | 'email' | 'role'>
+  // New joiner details — free-form, filled by HR
+  employee_name: string
+  employee_emp_id: string
+  employee_email: string
+  employee_phone?: string
+  employee_designation?: string
+  employee_department?: string
+  // Workflow actors
   requested_by: Pick<User, 'id' | 'emp_id' | 'full_name' | 'email' | 'role'>
   approved_by?: Pick<User, 'id' | 'emp_id' | 'full_name' | 'email' | 'role'>
   status: OnboardingStatus

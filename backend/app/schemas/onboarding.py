@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from app.schemas.user import UserBrief
 
@@ -17,7 +17,14 @@ class AssetRequirementItem(BaseModel):
 
 
 class OnboardingCreateRequest(BaseModel):
-    employee_id: UUID
+    # New joiner details — filled in by HR, no system account needed
+    employee_name: str = Field(..., min_length=2, max_length=150)
+    employee_emp_id: str = Field(..., min_length=1, max_length=50)
+    employee_email: EmailStr
+    employee_phone: Optional[str] = Field(None, max_length=30)
+    employee_designation: Optional[str] = Field(None, max_length=100)
+    employee_department: Optional[str] = Field(None, max_length=100)
+
     join_date: Optional[datetime] = None
     asset_requirements: List[AssetRequirementItem] = Field(
         ..., min_length=1, description="At least one asset requirement"
@@ -37,9 +44,19 @@ class OnboardingResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     id: UUID
-    employee: UserBrief
+
+    # New joiner details
+    employee_name: str
+    employee_emp_id: str
+    employee_email: str
+    employee_phone: Optional[str] = None
+    employee_designation: Optional[str] = None
+    employee_department: Optional[str] = None
+
+    # Workflow actors
     requested_by: UserBrief
     approved_by: Optional[UserBrief] = None
+
     status: str
     asset_requirements: List[Dict[str, Any]]
     join_date: Optional[datetime] = None
