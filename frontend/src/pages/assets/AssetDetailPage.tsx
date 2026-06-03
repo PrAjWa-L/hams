@@ -169,6 +169,34 @@ export default function AssetDetailPage() {
               ))}
             </div>
           </div>
+          {/* IT Specs card — only for IT assets */}
+          {asset.category.domain === 'IT' && (
+            <div className="card p-5 space-y-3 col-span-2">
+              <h3 className="font-medium text-gray-900 text-sm">IT Device Specifications</h3>
+              <div className="grid grid-cols-4 gap-4">
+                {[
+                  ['Hostname', asset.hostname],
+                  ['IP Address', asset.ip_address],
+                  ['MAC Address', asset.mac_address],
+                  ['Processor', asset.processor],
+                  ['Generation', asset.generation],
+                  ['RAM', asset.ram],
+                  ['HDD / SSD', asset.hdd],
+                  ['Label', asset.label],
+                  ['OS', asset.os_name],
+                  ['OS Activated', asset.os_activated === null ? '—' : asset.os_activated ? 'Yes ✓' : 'No ✗'],
+                  ['MS Office', asset.ms_office],
+                  ['Office Activated', asset.ms_office_activated === null ? '—' : asset.ms_office_activated ? 'Yes ✓' : 'No ✗'],
+                  ['Antivirus', asset.antivirus],
+                ].map(([label, value]) => (
+                  <div key={label as string}>
+                    <p className="text-xs text-gray-400">{label}</p>
+                    <p className="text-sm font-medium text-gray-700">{value ?? '—'}</p>
+                  </div>
+                ))}
+              </div>
+              </div>
+            )}
         </div>
       )}
 

@@ -31,12 +31,28 @@ class AssetCreateRequest(BaseModel):
     amc_start: Optional[date] = None
     amc_end: Optional[date] = None
     amc_cost: Optional[Decimal] = Field(None, ge=0)
+    last_service_date: Optional[date] = None
+    next_service_due: Optional[date] = None
     floor: Optional[str] = Field(None, max_length=50)
     location_notes: Optional[str] = Field(None, max_length=255)
     department_id: Optional[UUID] = None
     vendor_id: Optional[UUID] = None
     is_shared: bool = False
     notes: Optional[str] = None
+    label: Optional[str] = Field(None, max_length=100)
+    hostname: Optional[str] = Field(None, max_length=100)
+    ram: Optional[str] = Field(None, max_length=50)
+    hdd: Optional[str] = Field(None, max_length=100)
+    processor: Optional[str] = Field(None, max_length=150)
+    generation: Optional[str] = Field(None, max_length=50)
+    mac_address: Optional[str] = Field(None, max_length=50)
+    ip_address: Optional[str] = Field(None, max_length=50)
+    os_name: Optional[str] = Field(None, max_length=100)
+    os_activated: Optional[bool] = None
+    ms_office: Optional[str] = Field(None, max_length=100)
+    ms_office_activated: Optional[bool] = None
+    antivirus: Optional[str] = Field(None, max_length=100)
+    admin_login: Optional[bool] = None
 
 
 class AssetUpdateRequest(BaseModel):
@@ -55,13 +71,28 @@ class AssetUpdateRequest(BaseModel):
     amc_start: Optional[date] = None
     amc_end: Optional[date] = None
     amc_cost: Optional[Decimal] = Field(None, ge=0)
+    last_service_date: Optional[date] = None
+    next_service_due: Optional[date] = None
     floor: Optional[str] = Field(None, max_length=50)
     location_notes: Optional[str] = Field(None, max_length=255)
     department_id: Optional[UUID] = None
     vendor_id: Optional[UUID] = None
     is_shared: Optional[bool] = None
     notes: Optional[str] = None
-
+    label: Optional[str] = Field(None, max_length=100)
+    hostname: Optional[str] = Field(None, max_length=100)
+    ram: Optional[str] = Field(None, max_length=50)
+    hdd: Optional[str] = Field(None, max_length=100)
+    processor: Optional[str] = Field(None, max_length=150)
+    generation: Optional[str] = Field(None, max_length=50)
+    mac_address: Optional[str] = Field(None, max_length=50)
+    ip_address: Optional[str] = Field(None, max_length=50)
+    os_name: Optional[str] = Field(None, max_length=100)
+    os_activated: Optional[bool] = None
+    ms_office: Optional[str] = Field(None, max_length=100)
+    ms_office_activated: Optional[bool] = None
+    antivirus: Optional[str] = Field(None, max_length=100)
+    admin_login: Optional[bool] = None
 
 class AssetRetireRequest(BaseModel):
     reason: str = Field(..., min_length=5, max_length=500)
@@ -95,6 +126,8 @@ class AssetResponse(BaseModel):
     amc_start: Optional[date] = None
     amc_end: Optional[date] = None
     amc_cost: Optional[Decimal] = None
+    last_service_date: Optional[date] = None
+    next_service_due: Optional[date] = None
     floor: Optional[str] = None
     location_notes: Optional[str] = None
     status: str
@@ -105,7 +138,20 @@ class AssetResponse(BaseModel):
     vendor: Optional[VendorBrief] = None
     created_at: datetime
     updated_at: datetime
-
+    label: Optional[str] = None
+    hostname: Optional[str] = None
+    ram: Optional[str] = None
+    hdd: Optional[str] = None
+    processor: Optional[str] = None
+    generation: Optional[str] = None
+    mac_address: Optional[str] = None
+    ip_address: Optional[str] = None
+    os_name: Optional[str] = None
+    os_activated: Optional[bool] = None
+    ms_office: Optional[str] = None
+    ms_office_activated: Optional[bool] = None
+    antivirus: Optional[str] = None
+    admin_login: Optional[bool] = None
 
 class AssetListItem(BaseModel):
     """Lightweight item for list views."""
@@ -120,8 +166,24 @@ class AssetListItem(BaseModel):
     status: str
     floor: Optional[str] = None
     warranty_end: Optional[date] = None
+    last_service_date: Optional[date] = None
+    next_service_due: Optional[date] = None
     category: AssetCategoryBrief
     department: Optional[DepartmentBrief] = None
+    label: Optional[str] = None
+    hostname: Optional[str] = None
+    ram: Optional[str] = None
+    hdd: Optional[str] = None
+    processor: Optional[str] = None
+    generation: Optional[str] = None
+    mac_address: Optional[str] = None
+    ip_address: Optional[str] = None
+    os_name: Optional[str] = None
+    os_activated: Optional[bool] = None
+    ms_office: Optional[str] = None
+    ms_office_activated: Optional[bool] = None
+    antivirus: Optional[str] = None
+    admin_login: Optional[bool] = None
 
 
 class DocumentResponse(BaseModel):

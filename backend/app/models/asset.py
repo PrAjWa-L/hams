@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     ForeignKey,
@@ -12,8 +13,6 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    func,
-    select,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -28,7 +27,6 @@ if TYPE_CHECKING:
     from app.models.document import Document
     from app.models.maintenance_record import MaintenanceRecord
     from app.models.vendor import Vendor
-
 
 ASSET_STATUSES = ("available", "assigned", "under_maintenance", "retired", "disposed")
 
@@ -45,23 +43,33 @@ class Asset(AuditableBase, SoftDeleteMixin):
     )
 
     # ── Identity ──────────────────────────────────────────────
-    asset_id: Mapped[str] = mapped_column(
-        String(30), nullable=False, unique=True, index=True
-    )
+    asset_id: Mapped[str] = mapped_column(String(30), nullable=False, unique=True, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     brand: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     model: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
-    serial_number: Mapped[Optional[str]] = mapped_column(
-        String(150), nullable=True, unique=True, index=True
-    )
+    serial_number: Mapped[Optional[str]] = mapped_column(String(150), nullable=True, unique=True, index=True)
     barcode: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     qr_code_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    label: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+
+    # ── IT device specs ───────────────────────────────────────
+    hostname: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
+    ram: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    hdd: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    processor: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    generation: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    mac_address: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    os_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    os_activated: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    ms_office: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    ms_office_activated: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    antivirus: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    admin_login: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
 
     # ── Purchase & cost ───────────────────────────────────────
     purchase_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    purchase_cost: Mapped[Optional[Decimal]] = mapped_column(
-        Numeric(12, 2), nullable=True
-    )
+    purchase_cost: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
     po_reference: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     po_tool_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
@@ -74,48 +82,43 @@ class Asset(AuditableBase, SoftDeleteMixin):
     amc_start: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     amc_end: Mapped[Optional[date]] = mapped_column(Date, nullable=True, index=True)
     amc_cost: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    last_service_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    next_service_due: Mapped[Optional[date]] = mapped_column(Date, nullable=True, index=True)   
 
     # ── Location ──────────────────────────────────────────────
     floor: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     location_notes: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     # ── Status & assignment ───────────────────────────────────
-    status: Mapped[str] = mapped_column(
-        String(30), nullable=False, default="available", index=True
-    )
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="available", index=True)
     is_shared: Mapped[bool] = mapped_column(default=False, nullable=False)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # ── Foreign keys ──────────────────────────────────────────
     category_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("asset_categories.id", ondelete="RESTRICT"),
-        nullable=False,
-        index=True,
+        UUID(as_uuid=True), ForeignKey("asset_categories.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
     )
     department_id: Mapped[Optional[UUID]] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("departments.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
+        UUID(as_uuid=True), ForeignKey("departments.id", ondelete="SET NULL"),
+        nullable=True, index=True,
     )
     vendor_id: Mapped[Optional[UUID]] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("vendors.id", ondelete="SET NULL"),
+        UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"),
         nullable=True,
     )
 
     # ── Relationships ─────────────────────────────────────────
-    category: Mapped["AssetCategory"] = relationship(
-        "AssetCategory", back_populates="assets"
-    )
+    category: Mapped["AssetCategory"] = relationship("AssetCategory", back_populates="assets")
     department: Mapped[Optional["Department"]] = relationship("Department")
     vendor: Mapped[Optional["Vendor"]] = relationship("Vendor", back_populates="assets")
     assignments: Mapped[List["AssetAssignment"]] = relationship(
-        "AssetAssignment", back_populates="asset", order_by="AssetAssignment.assigned_at.desc()"
+        "AssetAssignment", back_populates="asset",
+        order_by="AssetAssignment.assigned_at.desc()"
     )
     maintenance_records: Mapped[List["MaintenanceRecord"]] = relationship(
-        "MaintenanceRecord", back_populates="asset", order_by="MaintenanceRecord.performed_at.desc()"
+        "MaintenanceRecord", back_populates="asset",
+        order_by="MaintenanceRecord.performed_at.desc()"
     )
     documents: Mapped[List["Document"]] = relationship(
         "Document",
