@@ -6,6 +6,7 @@ import DashboardPage from '@/pages/dashboard/DashboardPage'
 import AssetsPage from '@/pages/assets/AssetsPage'
 import AssetDetailPage from '@/pages/assets/AssetDetailPage'
 import AssetCreatePage from '@/pages/assets/AssetCreatePage'
+import AssetImportPage from '@/pages/assets/AssetImportPage'
 import UsersPage from '@/pages/users/UsersPage'
 import OnboardingPage from '@/pages/onboarding/OnboardingPage'
 import OnboardingDetailPage from '@/pages/onboarding/OnboardingDetailPage'
@@ -55,6 +56,11 @@ export default function AppRoutes() {
         <Route path="/assets/new" element={
           <RequireRole roles={['coo', 'it_head', 'it_team', 'management']}>
             <AssetCreatePage />
+          </RequireRole>
+        } />
+        <Route path="/assets/import" element={
+          <RequireRole roles={['coo', 'it_head', 'it_team']}>
+            <AssetImportPage />
           </RequireRole>
         } />
         <Route path="/assets/:id" element={<AssetDetailPage />} />

@@ -13,6 +13,7 @@ from app.core.logging import get_logger
 from app.core.rbac import Role
 from app.models.asset import Asset
 from app.models.asset_assignment import AssetAssignment
+from app.models.onboarding_request import OnboardingRequest
 from app.models.user import User
 from app.schemas.assignment import AssignmentCreateRequest, AssignmentReturnRequest
 from app.services.audit_service import AuditService
@@ -46,7 +47,7 @@ class AssignmentService:
         # Load asset
         asset_result = await self.db.execute(
             select(Asset)
-            .selectinload(Asset.category)
+            .options(selectinload(Asset.category))
             .where(Asset.id == data.asset_id, Asset.is_deleted == False)  # noqa: E712
         )
         asset = asset_result.scalar_one_or_none()
@@ -67,10 +68,38 @@ class AssignmentService:
                 detail=f"Asset is '{asset.status}' and cannot be assigned"
             )
 
-        # Verify employee exists
+        # Resolve employee — auto-provision a no-login user from onboarding if needed
         emp = await self.db.get(User, data.assigned_to_id)
         if not emp:
-            raise NotFoundException(detail="Employee not found")
+            # Maybe assigned_to_id is actually an onboarding_request id
+            onb = await self.db.get(OnboardingRequest, data.assigned_to_id)
+            if not onb or onb.status not in ("approved", "completed"):
+                raise NotFoundException(detail="Employee not found")
+
+            # Check if a user with this emp_id already exists
+            existing_user = await self.db.execute(
+                select(User).where(User.emp_id == onb.employee_emp_id)
+            )
+            emp = existing_user.scalar_one_or_none()
+
+            if not emp:
+                # Create a minimal non-login user record
+                from app.core.security import hash_password
+                import secrets
+                emp = User(
+                    emp_id=onb.employee_emp_id,
+                    full_name=onb.employee_name,
+                    email=onb.employee_email,
+                    role=Role.EMPLOYEE,
+                    password_hash=hash_password(secrets.token_hex(32)),
+                    is_active=False,          # cannot log in
+                    must_change_password=False,
+                )
+                self.db.add(emp)
+                await self.db.flush()
+                await self.db.refresh(emp)
+
+            data = data.model_copy(update={"assigned_to_id": emp.id})
 
         # For non-shared assets, check no active assignment exists
         if not asset.is_shared:

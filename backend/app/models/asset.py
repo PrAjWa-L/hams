@@ -107,11 +107,22 @@ class Asset(AuditableBase, SoftDeleteMixin):
         UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"),
         nullable=True,
     )
+    parent_asset_id: Mapped[Optional[UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("assets.id", ondelete="SET NULL"),
+        nullable=True, index=True,
+    )
 
     # ── Relationships ─────────────────────────────────────────
     category: Mapped["AssetCategory"] = relationship("AssetCategory", back_populates="assets")
     department: Mapped[Optional["Department"]] = relationship("Department")
     vendor: Mapped[Optional["Vendor"]] = relationship("Vendor", back_populates="assets")
+    linked_assets: Mapped[List["Asset"]] = relationship(
+        "Asset", foreign_keys="[Asset.parent_asset_id]", back_populates="parent_asset"
+    )
+    parent_asset: Mapped[Optional["Asset"]] = relationship(
+        "Asset", foreign_keys="[Asset.parent_asset_id]", back_populates="linked_assets",
+        remote_side="Asset.id"
+    )
     assignments: Mapped[List["AssetAssignment"]] = relationship(
         "AssetAssignment", back_populates="asset",
         order_by="AssetAssignment.assigned_at.desc()"

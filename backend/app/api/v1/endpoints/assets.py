@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies.auth import AuthUser
@@ -19,6 +19,7 @@ from app.schemas.asset import (
     AssetTransferRequest,
     AssetUpdateRequest,
     DocumentResponse,
+    ImportSummary,
 )
 from app.schemas.response import APIResponse
 from app.services.asset_service import AssetService
@@ -215,3 +216,33 @@ async def list_asset_documents(
     doc_svc = DocumentService(db)
     docs = await doc_svc.list_for_entity("asset", asset_id)
     return APIResponse.ok(data=[DocumentResponse.model_validate(d) for d in docs])
+
+
+# ── CSV Import ─────────────────────────────────────────────────────────────────
+
+from io import StringIO
+from typing import Any, Dict
+
+
+
+@router.post(
+    "/import",
+    response_model=APIResponse[ImportSummary],
+    status_code=status.HTTP_200_OK,
+    summary="Bulk-import IT assets from a Seqrite SystemAndHardwareDetails CSV export",
+    dependencies=[Depends(require_permissions(Permission.ASSET_CREATE))],
+)
+async def import_assets_csv(
+    current_user: AuthUser,
+    db: AsyncSession = Depends(get_db),
+    file: UploadFile = File(...),
+):
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        from app.core.exceptions import BadRequestException
+        raise BadRequestException(detail="Only .csv files are accepted")
+    content = await file.read()
+    svc = AssetService(db)
+    summary = await svc.import_csv(
+        content, actor_id=current_user.id, actor_role=current_user.role
+    )
+    return APIResponse.ok(data=summary)

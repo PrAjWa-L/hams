@@ -2,47 +2,98 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @layer base {
   * {
     @apply border-gray-200;
   }
   body {
-    @apply bg-gray-50 text-gray-900 font-sans antialiased;
+    background: #f0f2f5;
+    @apply text-gray-900 antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 }
 
 @layer components {
+  /* ── Buttons ─────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-40 disabled:cursor-not-allowed;
+    border-radius: 6px;
+    letter-spacing: 0.01em;
   }
   .btn-primary {
-    @apply btn bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+    @apply btn text-white focus:ring-blue-500;
+    background: #1a1f2e;
+    border: 1px solid #1a1f2e;
   }
+  .btn-primary:hover { background: #252c3f; }
   .btn-secondary {
-    @apply btn bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-primary-500;
+    @apply btn bg-white text-gray-700 focus:ring-blue-400;
+    border: 1px solid #d1d5db;
   }
+  .btn-secondary:hover { background: #f9fafb; border-color: #9ca3af; }
   .btn-danger {
-    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+    @apply btn text-white focus:ring-red-400;
+    background: #dc2626;
+    border: 1px solid #dc2626;
   }
+  .btn-danger:hover { background: #b91c1c; }
   .btn-ghost {
-    @apply btn text-gray-600 hover:bg-gray-100 focus:ring-gray-400;
+    @apply btn text-gray-500 hover:bg-gray-100 focus:ring-gray-300;
+    border: 1px solid transparent;
   }
+
+  /* ── Inputs ──────────────────────────────────── */
   .input {
-    @apply block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500;
+    @apply block w-full bg-white px-3 py-2 text-sm placeholder-gray-400 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500;
+    border: 1px solid #e2e6ea;
+    border-radius: 6px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  .input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
   }
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wide;
   }
+
+  /* ── Cards ───────────────────────────────────── */
   .card {
-    @apply bg-white rounded-xl border border-gray-200 shadow-sm;
+    background: #ffffff;
+    border: 1px solid #e8ebef;
+    border-radius: 10px;
   }
+
+  /* ── Badges ──────────────────────────────────── */
   .badge {
-    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
   }
-  .badge-green  { @apply badge bg-green-100 text-green-800; }
-  .badge-yellow { @apply badge bg-yellow-100 text-yellow-800; }
-  .badge-red    { @apply badge bg-red-100 text-red-800; }
-  .badge-blue   { @apply badge bg-blue-100 text-blue-800; }
-  .badge-gray   { @apply badge bg-gray-100 text-gray-700; }
-  .badge-purple { @apply badge bg-purple-100 text-purple-800; }
+  .badge-green  { background: #dcfce7; color: #15803d; }
+  .badge-yellow { background: #fef9c3; color: #a16207; }
+  .badge-red    { background: #fee2e2; color: #b91c1c; }
+  .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+  .badge-gray   { background: #f1f5f9; color: #475569; }
+  .badge-purple { background: #f3e8ff; color: #7e22ce; }
+  .badge-orange { background: #ffedd5; color: #c2410c; }
+
+  /* ── Monospace data ──────────────────────────── */
+  .mono {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Stat number ─────────────────────────────── */
+  .stat-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.75rem;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
 }

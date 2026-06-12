@@ -66,6 +66,56 @@ async def list_onboarding(
 
 
 @router.get(
+    "/assignable",
+    response_model=APIResponse[list],
+    status_code=status.HTTP_200_OK,
+    summary="List approved/completed onboarding employees available for asset assignment",
+    dependencies=[Depends(require_permissions(Permission.ASSET_READ))],
+)
+async def list_assignable_employees(
+    current_user: AuthUser,
+    db: AsyncSession = Depends(get_db),
+    search: str | None = Query(None, max_length=100),
+):
+    from sqlalchemy import or_, select
+    from app.models.onboarding_request import OnboardingRequest
+
+    filters = [
+        OnboardingRequest.status.in_(["approved", "completed"]),
+    ]
+    if search:
+        term = f"%{search}%"
+        filters.append(
+            or_(
+                OnboardingRequest.employee_name.ilike(term),
+                OnboardingRequest.employee_emp_id.ilike(term),
+                OnboardingRequest.employee_email.ilike(term),
+            )
+        )
+
+    result = await db.execute(
+        select(OnboardingRequest)
+        .where(*filters)
+        .order_by(OnboardingRequest.employee_name)
+    )
+    requests = result.scalars().all()
+
+    employees = [
+        {
+            "id": str(r.id),
+            "emp_id": r.employee_emp_id,
+            "full_name": r.employee_name,
+            "email": r.employee_email,
+            "department": r.employee_department,
+            "designation": r.employee_designation if hasattr(r, "employee_designation") else None,
+            "status": r.status,
+        }
+        for r in requests
+    ]
+    return APIResponse.ok(data=employees)
+
+
+@router.get(
     "/{request_id}",
     response_model=APIResponse[OnboardingResponse],
     status_code=status.HTTP_200_OK,

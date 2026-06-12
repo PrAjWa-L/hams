@@ -8,6 +8,16 @@ import type {
   PagedResponse,
 } from '@/types'
 
+export interface AssignableEmployee {
+  id: string
+  emp_id: string
+  full_name: string
+  email: string
+  department?: string
+  designation?: string
+  status: string
+}
+
 export const onboardingApi = {
   list: async (params: Record<string, string | undefined> = {}) => {
     const query = new URLSearchParams()
@@ -50,6 +60,12 @@ export const onboardingApi = {
 
   complete: async (id: string) => {
     const { data } = await api.post<APIResponse<OnboardingRequest>>(`/onboarding/${id}/complete`)
+    return data.data!
+  },
+
+  assignableEmployees: async (search?: string) => {
+    const params = search ? `?search=${encodeURIComponent(search)}` : ''
+    const { data } = await api.get<APIResponse<AssignableEmployee[]>>(`/onboarding/assignable${params}`)
     return data.data!
   },
 }

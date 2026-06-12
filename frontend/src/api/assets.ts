@@ -1,6 +1,22 @@
 import api from '@/lib/axios'
 import type { APIResponse, Asset, AssetCategory, AssetListItem, Document, PagedResponse } from '@/types'
 
+export interface ImportRowResult {
+  row: number
+  endpoint_name: string
+  status: 'created' | 'skipped' | 'error'
+  asset_id?: string
+  reason?: string
+}
+
+export interface ImportSummary {
+  total: number
+  created: number
+  skipped: number
+  errors: number
+  results: ImportRowResult[]
+}
+
 export interface AssetFilters {
   page?: number
   page_size?: number
@@ -69,6 +85,15 @@ export const assetsApi = {
 
   getDocuments: async (id: string) => {
     const { data } = await api.get<APIResponse<Document[]>>(`/assets/${id}/documents`)
+    return data.data!
+  },
+
+  importCsv: async (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    const { data } = await api.post<APIResponse<ImportSummary>>('/assets/import', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
     return data.data!
   },
 

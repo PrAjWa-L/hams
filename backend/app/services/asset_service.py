@@ -23,6 +23,8 @@ from app.schemas.asset import (
     AssetRetireRequest,
     AssetTransferRequest,
     AssetUpdateRequest,
+    ImportRowResult,
+    ImportSummary,
 )
 from app.services.audit_service import AuditService
 from app.services.base_repository import BaseRepository
@@ -35,6 +37,8 @@ _LOAD_OPTS = [
     selectinload(Asset.category),
     selectinload(Asset.department),
     selectinload(Asset.vendor),
+    selectinload(Asset.linked_assets).selectinload(Asset.category),
+    selectinload(Asset.parent_asset).selectinload(Asset.category),
 ]
 
 
@@ -303,6 +307,151 @@ class AssetService:
         )
         logger.info("asset_transferred", asset_id=str(asset_id))
         return await self._load(asset.id)
+
+    # ── CSV Import ────────────────────────────────────────────
+
+    @staticmethod
+    def _csv_clean_name(raw: str) -> str:
+        import re
+        return re.sub(r"\(null\)\s*$", "", str(raw)).strip()
+
+    @staticmethod
+    def _csv_parse_storage(val) -> Optional[str]:
+        import re
+        if not val or str(val).strip().lower() in ("", "nan"):
+            return None
+        m = re.search(r"Capacity:([\d.]+\s*GB)", str(val))
+        return m.group(1).strip() if m else str(val)[:100]
+
+    @staticmethod
+    def _csv_parse_serial(val) -> Optional[str]:
+        if not val or str(val).strip().lower() in ("", "nan", "n/a"):
+            return None
+        return str(val).strip()
+
+    async def import_csv(
+        self,
+        content: bytes,
+        actor_id: UUID,
+        actor_role: str,
+    ) -> ImportSummary:
+        import io
+        import pandas as pd
+
+        try:
+            df = pd.read_csv(io.StringIO(content.decode("utf-8", errors="replace")))
+        except Exception as exc:
+            raise BadRequestException(detail=f"Could not parse CSV: {exc}")
+
+        required_cols = {"Endpoint Name", "IP Address", "Manufacturer", "Model"}
+        missing = required_cols - set(df.columns)
+        if missing:
+            raise BadRequestException(detail=f"CSV is missing columns: {missing}")
+
+        # Resolve default IT category
+        cat_result = await self.db.execute(
+            select(AssetCategory).where(AssetCategory.domain == "IT").limit(1)
+        )
+        default_category = cat_result.scalar_one_or_none()
+        if not default_category:
+            raise BadRequestException(
+                detail="No IT asset category found. Please create one before importing."
+            )
+
+        results: list[ImportRowResult] = []
+        created = skipped = errors = 0
+
+        for idx, row in df.iterrows():
+            row_num = int(idx) + 2  # 1-based + header
+            name = self._csv_clean_name(row.get("Endpoint Name", "")) or f"Imported-{row_num}"
+            serial = self._csv_parse_serial(row.get("BIOS Serial Number"))
+
+            # Dedup by serial
+            if serial:
+                dup = await self.db.execute(
+                    select(Asset.id).where(
+                        Asset.serial_number == serial,
+                        Asset.is_deleted == False,  # noqa: E712
+                    )
+                )
+                if dup.scalar_one_or_none():
+                    skipped += 1
+                    results.append(ImportRowResult(
+                        row=row_num, endpoint_name=name, status="skipped",
+                        reason=f"Serial {serial} already exists",
+                    ))
+                    continue
+
+            # Dedup by hostname
+            dup_host = await self.db.execute(
+                select(Asset.id).where(
+                    Asset.hostname == name,
+                    Asset.is_deleted == False,  # noqa: E712
+                )
+            )
+            if dup_host.scalar_one_or_none():
+                skipped += 1
+                results.append(ImportRowResult(
+                    row=row_num, endpoint_name=name, status="skipped",
+                    reason=f"Hostname '{name}' already exists",
+                ))
+                continue
+
+            def _str(col: str) -> Optional[str]:
+                v = row.get(col)
+                return str(v).strip() if v and str(v).strip().lower() not in ("", "nan") else None
+
+            av = _str("Product Name")
+            av_ver = _str("Product Version")
+            antivirus = f"{av} {av_ver}".strip() if av and av_ver else av
+
+            notes_parts = [
+                f"Last logged-in user: {u}" for u in [_str("User Name")] if u
+            ] + [
+                f"OS Version: {v}" for v in [_str("OS Version")] if v
+            ] + [
+                f"Last connected: {c}" for c in [_str("Last Connected On")] if c
+            ]
+
+            payload = AssetCreateRequest(
+                name=name,
+                category_id=default_category.id,
+                brand=_str("Manufacturer"),
+                model=_str("Model"),
+                serial_number=serial,
+                hostname=name,
+                ip_address=_str("IP Address"),
+                mac_address=_str("MAC Address 1"),
+                os_name=_str("OS Name"),
+                ram=_str("Physical Memory"),
+                hdd=self._csv_parse_storage(row.get("Storage")),
+                processor=_str("Processor Name"),
+                antivirus=antivirus,
+                label=_str("Group"),
+                notes="\n".join(notes_parts) or None,
+            )
+
+            try:
+                asset = await self.create(payload, actor_id=actor_id, actor_role=actor_role)
+                created += 1
+                results.append(ImportRowResult(
+                    row=row_num, endpoint_name=name,
+                    status="created", asset_id=asset.asset_id,
+                ))
+            except Exception as exc:
+                errors += 1
+                results.append(ImportRowResult(
+                    row=row_num, endpoint_name=name,
+                    status="error", reason=str(exc),
+                ))
+
+        return ImportSummary(
+            total=len(df),
+            created=created,
+            skipped=skipped,
+            errors=errors,
+            results=results,
+        )
 
     # ── Helpers ───────────────────────────────────────────────
 

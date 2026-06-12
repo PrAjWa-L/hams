@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, QrCode, FileText, Clock, Loader2, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, QrCode, Loader2, AlertTriangle, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { assetsApi } from '@/api/assets'
 import { assignmentsApi } from '@/api/workflow'
@@ -17,6 +17,8 @@ export default function AssetDetailPage() {
   const [tab, setTab] = useState<'details' | 'assignments' | 'maintenance' | 'documents'>('details')
   const [showRetireModal, setShowRetireModal] = useState(false)
   const [retireReason, setRetireReason] = useState('')
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editForm, setEditForm] = useState<Record<string, string>>({})
 
   const { data: asset, isLoading } = useQuery({
     queryKey: ['asset', id],
@@ -47,6 +49,40 @@ export default function AssetDetailPage() {
     onError: () => toast.error('Failed to retire asset'),
   })
 
+  const update = useMutation({
+    mutationFn: (payload: Record<string, string>) => {
+      const { is_shared, ...rest } = payload
+      return assetsApi.update(id!, { ...rest, is_shared: is_shared === 'true' } as never)
+    },
+    onSuccess: () => {
+      toast.success('Asset updated')
+      qc.invalidateQueries({ queryKey: ['asset', id] })
+      setShowEditModal(false)
+    },
+    onError: () => toast.error('Failed to update asset'),
+  })
+
+  function openEdit() {
+    setEditForm({
+      name: asset?.name ?? '',
+      brand: asset?.brand ?? '',
+      model: asset?.model ?? '',
+      serial_number: asset?.serial_number ?? '',
+      hostname: asset?.hostname ?? '',
+      ip_address: asset?.ip_address ?? '',
+      mac_address: asset?.mac_address ?? '',
+      ram: asset?.ram ?? '',
+      hdd: asset?.hdd ?? '',
+      processor: asset?.processor ?? '',
+      os_name: asset?.os_name ?? '',
+      label: asset?.label ?? '',
+      notes: asset?.notes ?? '',
+      warranty_end: asset?.warranty_end ?? '',
+      is_shared: asset?.is_shared ? 'true' : 'false',
+    })
+    setShowEditModal(true)
+  }
+
   if (isLoading) return (
     <div className="flex items-center justify-center h-64">
       <Loader2 className="animate-spin text-gray-400" size={24} />
@@ -57,6 +93,7 @@ export default function AssetDetailPage() {
 
   const wDays = warrantyDaysLeft(asset.warranty_end)
   const canRetire = ['coo', 'it_head', 'management'].includes(user?.role ?? '')
+  const canEdit = ['coo', 'it_head', 'it_team', 'management'].includes(user?.role ?? '')
 
   return (
     <div>
@@ -69,6 +106,9 @@ export default function AssetDetailPage() {
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-semibold text-gray-900">{asset.name}</h1>
             <AssetStatusBadge status={asset.status} />
+            {asset.is_shared && (
+              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">Shared</span>
+            )}
           </div>
           <p className="text-sm text-gray-500 font-mono">{asset.asset_id}</p>
         </div>
@@ -77,6 +117,11 @@ export default function AssetDetailPage() {
             <a href={qrData.qr_url} target="_blank" rel="noreferrer" className="btn-secondary">
               <QrCode size={16} /> QR Code
             </a>
+          )}
+          {canEdit && asset.status !== 'retired' && asset.status !== 'disposed' && (
+            <button onClick={openEdit} className="btn-secondary">
+              <Pencil size={16} /> Edit
+            </button>
           )}
           {canRetire && asset.status !== 'retired' && asset.status !== 'disposed' && (
             <button onClick={() => setShowRetireModal(true)} className="btn-danger">
@@ -197,6 +242,42 @@ export default function AssetDetailPage() {
               </div>
               </div>
             )}
+
+        {/* Parent Asset (e.g. desktop this printer is linked to) */}
+        {asset.parent_asset && (
+          <div className="card p-5 mt-4">
+            <h3 className="font-medium text-gray-700 mb-3">Tagged To</h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <Link to={`/assets/${asset.parent_asset.id}`} className="text-sm font-medium text-primary-600 hover:underline">
+                  {asset.parent_asset.name}
+                </Link>
+                <p className="text-xs text-gray-400">{asset.parent_asset.category.name}{asset.parent_asset.model ? ` · ${asset.parent_asset.model}` : ''}</p>
+              </div>
+              <span className="font-mono text-xs text-gray-400">{asset.parent_asset.asset_id}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Linked Assets (e.g. printers) */}
+        {asset.linked_assets && asset.linked_assets.length > 0 && (
+          <div className="card p-5 mt-4">
+            <h3 className="font-medium text-gray-700 mb-3">Linked Assets</h3>
+            <div className="divide-y divide-gray-100">
+              {asset.linked_assets.map((la: { id: string; asset_id: string; name: string; model?: string; status: string; category: { name: string } }) => (
+                <div key={la.id} className="py-2.5 flex items-center justify-between">
+                  <div>
+                    <Link to={`/assets/${la.id}`} className="text-sm font-medium text-primary-600 hover:underline">
+                      {la.name}
+                    </Link>
+                    <p className="text-xs text-gray-400">{la.category.name}{la.model ? ` · ${la.model}` : ''}</p>
+                  </div>
+                  <span className="font-mono text-xs text-gray-400">{la.asset_id}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         </div>
       )}
 
@@ -239,19 +320,95 @@ export default function AssetDetailPage() {
             <textarea
               value={retireReason}
               onChange={(e) => setRetireReason(e.target.value)}
-              placeholder="Reason for retirement..."
-              className="input mb-4"
+              placeholder="Reason for retirement (min 5 characters)..."
+              className="input mb-1"
               rows={3}
             />
-            <div className="flex gap-3 justify-end">
+            {retireReason.length > 0 && retireReason.length < 5 && (
+              <p className="text-xs text-red-500 mb-3">Reason must be at least 5 characters</p>
+            )}
+            <div className="flex gap-3 justify-end mt-3">
               <button onClick={() => setShowRetireModal(false)} className="btn-secondary">Cancel</button>
               <button
                 onClick={() => retire.mutate()}
-                disabled={!retireReason || retire.isPending}
+                disabled={retireReason.length < 5 || retire.isPending}
                 className="btn-danger"
               >
                 {retire.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
                 Retire
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="card p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-semibold text-gray-900">Edit Asset</h3>
+              <button onClick={() => setShowEditModal(false)} className="btn-ghost p-1 text-gray-400">✕</button>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { key: 'name', label: 'Name' },
+                { key: 'brand', label: 'Brand' },
+                { key: 'model', label: 'Model' },
+                { key: 'serial_number', label: 'Serial Number' },
+                { key: 'hostname', label: 'Hostname' },
+                { key: 'ip_address', label: 'IP Address' },
+                { key: 'mac_address', label: 'MAC Address' },
+                { key: 'ram', label: 'RAM' },
+                { key: 'hdd', label: 'Storage' },
+                { key: 'processor', label: 'Processor' },
+                { key: 'os_name', label: 'OS' },
+                { key: 'label', label: 'Label' },
+                { key: 'warranty_end', label: 'Warranty End', type: 'date' },
+              ].map(({ key, label, type }) => (
+                <div key={key}>
+                  <label className="label">{label}</label>
+                  <input
+                    type={type ?? 'text'}
+                    value={editForm[key] ?? ''}
+                    onChange={(e) => setEditForm((f) => ({ ...f, [key]: e.target.value }))}
+                    className="input"
+                  />
+                </div>
+              ))}
+              <div className="col-span-2">
+                <label className="label">Notes</label>
+                <textarea
+                  value={editForm.notes ?? ''}
+                  onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                  className="input"
+                  rows={3}
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editForm.is_shared === 'true'}
+                    onChange={(e) => setEditForm((f) => ({ ...f, is_shared: e.target.checked ? 'true' : 'false' }))}
+                    className="rounded border-gray-300 w-4 h-4"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Shared Asset</p>
+                    <p className="text-xs text-gray-400">Allows this asset to be assigned to multiple employees simultaneously (e.g. reception desktops)</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-5">
+              <button onClick={() => setShowEditModal(false)} className="btn-secondary">Cancel</button>
+              <button
+                onClick={() => update.mutate(editForm)}
+                disabled={update.isPending}
+                className="btn-primary"
+              >
+                {update.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
+                Save Changes
               </button>
             </div>
           </div>

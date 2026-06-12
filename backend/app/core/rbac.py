@@ -63,7 +63,9 @@ class Permission(str, Enum):
 
 ROLE_PERMISSIONS: dict[Role, Set[Permission]] = {
     Role.COO: {
+        Permission.ASSET_CREATE,
         Permission.ASSET_READ,
+        Permission.ASSET_UPDATE,
         Permission.ASSET_RETIRE,
         Permission.ASSET_TRANSFER,
         Permission.ONBOARDING_APPROVE,
@@ -72,12 +74,14 @@ ROLE_PERMISSIONS: dict[Role, Set[Permission]] = {
         Permission.REPORT_READ,
         Permission.REPORT_EXPORT,
         Permission.AUDIT_LOG_READ,
+        Permission.USER_MANAGE,
     },
     Role.HR: {
         Permission.ONBOARDING_CREATE,
         Permission.PROCUREMENT_CREATE,
         Permission.ASSET_READ,
         Permission.MAINTENANCE_LOG,
+        Permission.USER_MANAGE,
     },
     Role.IT_HEAD: {
         Permission.ASSET_CREATE,
@@ -90,12 +94,14 @@ ROLE_PERMISSIONS: dict[Role, Set[Permission]] = {
         Permission.REPORT_READ,
         Permission.REPORT_EXPORT,
         Permission.AUDIT_LOG_READ,
+        Permission.USER_MANAGE,
     },
     Role.IT_TEAM: {
         Permission.ASSET_CREATE,
         Permission.ASSET_READ,
         Permission.ASSET_UPDATE,
         Permission.MAINTENANCE_LOG,
+        Permission.USER_MANAGE,
     },
     Role.MANAGEMENT: {
         Permission.ASSET_CREATE,
@@ -108,6 +114,7 @@ ROLE_PERMISSIONS: dict[Role, Set[Permission]] = {
         Permission.REPORT_READ,
         Permission.REPORT_EXPORT,
         Permission.AUDIT_LOG_READ,
+        Permission.USER_MANAGE,
     },
     Role.EMPLOYEE: {
         Permission.ASSET_READ,

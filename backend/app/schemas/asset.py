@@ -152,6 +152,24 @@ class AssetResponse(BaseModel):
     ms_office_activated: Optional[bool] = None
     antivirus: Optional[str] = None
     admin_login: Optional[bool] = None
+    parent_asset_id: Optional[UUID] = None
+    parent_asset: Optional["AssetLinkedItem"] = None
+    linked_assets: List["AssetLinkedItem"] = []
+
+
+class AssetLinkedItem(BaseModel):
+    """Minimal asset info for linked assets (e.g. printers attached to a desktop)."""
+    model_config = {"from_attributes": True}
+    id: UUID
+    asset_id: str
+    name: str
+    model: Optional[str] = None
+    status: str
+    category: AssetCategoryBrief
+
+
+AssetResponse.model_rebuild()
+
 
 class AssetListItem(BaseModel):
     """Lightweight item for list views."""
@@ -184,6 +202,22 @@ class AssetListItem(BaseModel):
     ms_office_activated: Optional[bool] = None
     antivirus: Optional[str] = None
     admin_login: Optional[bool] = None
+
+
+class ImportRowResult(BaseModel):
+    row: int
+    endpoint_name: str
+    status: str  # "created" | "skipped" | "error"
+    asset_id: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class ImportSummary(BaseModel):
+    total: int
+    created: int
+    skipped: int
+    errors: int
+    results: List[ImportRowResult]
 
 
 class DocumentResponse(BaseModel):

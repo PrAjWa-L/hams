@@ -160,7 +160,7 @@ export default function DashboardPage() {
                   className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
                 >
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{req.employee.full_name}</p>
+                    <p className="text-sm font-medium text-gray-900">{req.employee_name}</p>
                     <p className="text-xs text-gray-400">
                       Requested by {req.requested_by.full_name} · {formatDate(req.created_at)}
                     </p>
