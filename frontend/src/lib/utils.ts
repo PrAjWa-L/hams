@@ -60,12 +60,14 @@ export const STATUS_COLORS: Record<AssetStatus, string> = {
 }
 
 export const ONBOARDING_STATUS_COLORS: Record<OnboardingStatus, string> = {
-  draft: 'badge-gray',
-  pending_approval: 'badge-yellow',
-  approved: 'badge-blue',
-  rejected: 'badge-red',
-  in_progress: 'badge-purple',
-  completed: 'badge-green',
+  draft: 'badge badge-gray',
+  pending_hr_approval: 'badge badge-yellow',
+  pending_coo_approval: 'badge badge-orange',
+  pending_approval: 'badge badge-yellow',   // legacy
+  approved: 'badge badge-blue',
+  rejected: 'badge badge-red',
+  in_progress: 'badge badge-purple',
+  completed: 'badge badge-green',
 }
 
 export const ROLE_LABELS: Record<Role, string> = {

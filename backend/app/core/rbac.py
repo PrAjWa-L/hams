@@ -46,8 +46,9 @@ class Permission(str, Enum):
     ASSIGNMENT_CREATE = "assignment:create"
     ASSIGNMENT_ACKNOWLEDGE = "assignment:acknowledge"
     # Onboarding
-    ONBOARDING_CREATE = "onboarding:create"
-    ONBOARDING_APPROVE = "onboarding:approve"
+    ONBOARDING_CREATE = "onboarding:create"        # HOD submits
+    ONBOARDING_HR_APPROVE = "onboarding:hr_approve"  # HR stage-1
+    ONBOARDING_APPROVE = "onboarding:approve"      # COO final
     # Procurement
     PROCUREMENT_CREATE = "procurement:create"
     PROCUREMENT_APPROVE = "procurement:approve"
@@ -77,7 +78,7 @@ ROLE_PERMISSIONS: dict[Role, Set[Permission]] = {
         Permission.USER_MANAGE,
     },
     Role.HR: {
-        Permission.ONBOARDING_CREATE,
+        Permission.ONBOARDING_HR_APPROVE,    # stage-1 approval only
         Permission.PROCUREMENT_CREATE,
         Permission.ASSET_READ,
         Permission.MAINTENANCE_LOG,
@@ -90,6 +91,7 @@ ROLE_PERMISSIONS: dict[Role, Set[Permission]] = {
         Permission.ASSET_RETIRE,
         Permission.ASSET_TRANSFER,
         Permission.ASSIGNMENT_CREATE,
+        Permission.ONBOARDING_CREATE,        # HOD: submits requests
         Permission.MAINTENANCE_LOG,
         Permission.REPORT_READ,
         Permission.REPORT_EXPORT,
@@ -110,6 +112,7 @@ ROLE_PERMISSIONS: dict[Role, Set[Permission]] = {
         Permission.ASSET_RETIRE,
         Permission.ASSET_TRANSFER,
         Permission.ASSIGNMENT_CREATE,
+        Permission.ONBOARDING_CREATE,        # HOD: submits requests
         Permission.MAINTENANCE_LOG,
         Permission.REPORT_READ,
         Permission.REPORT_EXPORT,

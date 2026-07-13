@@ -14,11 +14,14 @@ if TYPE_CHECKING:
 
 ONBOARDING_STATUSES = (
     "draft",
-    "pending_approval",
-    "approved",
+    "pending_hr_approval",    # HOD submitted, waiting for HR
+    "pending_coo_approval",   # HR approved, waiting for COO
+    "approved",               # COO gave final approval → IT fulfils
     "rejected",
     "in_progress",
     "completed",
+    # Legacy — map old rows gracefully
+    "pending_approval",
 )
 
 
@@ -31,7 +34,7 @@ class OnboardingRequest(AuditableBase):
         ),
     )
 
-    # ── Free-form new joiner details (filled by HR) ───────────
+    # ── New joiner details (filled by HOD) ───────────────────
     employee_name: Mapped[str] = mapped_column(String(150), nullable=False)
     employee_emp_id: Mapped[str] = mapped_column(String(50), nullable=False)
     employee_email: Mapped[str] = mapped_column(String(150), nullable=False)
@@ -40,13 +43,19 @@ class OnboardingRequest(AuditableBase):
     employee_department: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # ── Workflow actors ───────────────────────────────────────
-    # HR who raised the request
+    # HOD who raised the request
     requested_by_id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )
-    # COO who approved/rejected
+    # HR who gave stage-1 approval
+    hr_approved_by_id: Mapped[Optional[UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    # COO who gave final approval
     approved_by_id: Mapped[Optional[UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
@@ -54,7 +63,7 @@ class OnboardingRequest(AuditableBase):
     )
 
     status: Mapped[str] = mapped_column(
-        String(30), nullable=False, default="pending_approval", index=True
+        String(30), nullable=False, default="pending_hr_approval", index=True
     )
 
     # JSON list of asset requirements
@@ -64,6 +73,9 @@ class OnboardingRequest(AuditableBase):
     )
 
     join_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    hr_approved_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     approved_at: Mapped[Optional[datetime]] = mapped_column(
@@ -81,6 +93,9 @@ class OnboardingRequest(AuditableBase):
         "User",
         foreign_keys=[requested_by_id],
         back_populates="onboarding_requests_raised",
+    )
+    hr_approved_by: Mapped[Optional["User"]] = relationship(
+        "User", foreign_keys=[hr_approved_by_id]
     )
     approved_by: Mapped[Optional["User"]] = relationship(
         "User", foreign_keys=[approved_by_id]

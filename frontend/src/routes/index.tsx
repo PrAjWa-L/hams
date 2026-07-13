@@ -79,7 +79,7 @@ export default function AppRoutes() {
           </RequireRole>
         } />
         <Route path="/onboarding/new" element={
-          <RequireRole roles={['coo', 'hr']}>
+          <RequireRole roles={['coo', 'it_head', 'management']}>
             <OnboardingCreatePage />
           </RequireRole>
         } />

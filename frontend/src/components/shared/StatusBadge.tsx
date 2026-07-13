@@ -16,7 +16,9 @@ export function AssetStatusBadge({ status }: { status: AssetStatus }) {
 export function OnboardingStatusBadge({ status }: { status: OnboardingStatus }) {
   const labels: Record<OnboardingStatus, string> = {
     draft: 'Draft',
-    pending_approval: 'Pending Approval',
+    pending_hr_approval: 'Pending HR',
+    pending_coo_approval: 'Pending COO',
+    pending_approval: 'Pending Approval',  // legacy
     approved: 'Approved',
     rejected: 'Rejected',
     in_progress: 'In Progress',
@@ -24,7 +26,7 @@ export function OnboardingStatusBadge({ status }: { status: OnboardingStatus }) 
   }
   return (
     <span className={cn(ONBOARDING_STATUS_COLORS[status])}>
-      {labels[status]}
+      {labels[status] ?? status}
     </span>
   )
 }

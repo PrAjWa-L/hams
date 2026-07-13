@@ -58,6 +58,18 @@ export const onboardingApi = {
     return data.data!
   },
 
+  hrApprove: async (id: string, notes?: string) => {
+    const { data } = await api.post<APIResponse<OnboardingRequest>>(`/onboarding/${id}/hr-approve`, { notes })
+    return data.data!
+  },
+
+  hrReject: async (id: string, rejection_reason: string) => {
+    const { data } = await api.post<APIResponse<OnboardingRequest>>(`/onboarding/${id}/hr-reject`, {
+      rejection_reason,
+    })
+    return data.data!
+  },
+
   complete: async (id: string) => {
     const { data } = await api.post<APIResponse<OnboardingRequest>>(`/onboarding/${id}/complete`)
     return data.data!

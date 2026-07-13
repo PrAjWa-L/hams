@@ -3,27 +3,39 @@ import { Server, Users, ClipboardList, AlertTriangle, CheckCircle, Clock, Packag
 import { useAuthStore } from '@/store/auth'
 import { assetsApi } from '@/api/assets'
 import { onboardingApi, assignmentsApi, maintenanceApi } from '@/api/workflow'
-import { usersApi } from '@/api/users'
 import { formatDate } from '@/lib/utils'
 import { AssetStatusBadge, OnboardingStatusBadge } from '@/components/shared/StatusBadge'
 import { Link } from 'react-router-dom'
 
-function StatCard({ label, value, icon: Icon, color, to }: {
-  label: string; value: number | string; icon: React.ComponentType<{ size?: number; className?: string }>
-  color: string; to?: string
-}) {
-  const content = (
-    <div className="card p-5 flex items-center gap-4 hover:shadow-md transition-shadow">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon size={22} className="text-white" />
+interface StatCardProps {
+  label: string
+  value: number | string
+  icon: React.ComponentType<{ size?: number; color?: string }>
+  colorClass: string
+  to?: string
+  change?: string
+}
+
+function StatCard({ label, value, icon: Icon, colorClass, to, change }: StatCardProps) {
+  const inner = (
+    <div className="stat-card" style={{ paddingTop: '44px' }}>
+      <div className={`stat-icon-box ${colorClass}`}>
+        <Icon size={22} color="white" />
       </div>
-      <div>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
-        <p className="text-sm text-gray-500">{label}</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '8px' }}>
+        <div>
+          <p className="stat-label">{label}</p>
+          <p className="stat-value">{value}</p>
+        </div>
+        {change && (
+          <p style={{ fontSize: '12px', color: '#8392ab', textAlign: 'right', marginTop: '2px' }}>{change}</p>
+        )}
       </div>
     </div>
   )
-  return to ? <Link to={to}>{content}</Link> : content
+  return to
+    ? <Link to={to} style={{ textDecoration: 'none', display: 'block' }} className="card-hover">{inner}</Link>
+    : <div className="card-hover">{inner}</div>
 }
 
 export default function DashboardPage() {
@@ -34,172 +46,238 @@ export default function DashboardPage() {
     queryKey: ['assets', 'dashboard'],
     queryFn: () => assetsApi.list({ page_size: 1 }),
   })
-
   const { data: pendingOnboarding } = useQuery({
     queryKey: ['onboarding', 'pending'],
     queryFn: () => onboardingApi.list({ status: 'pending_approval' }),
     enabled: ['coo', 'hr', 'it_head', 'management'].includes(role ?? ''),
   })
-
   const { data: myAssets } = useQuery({
     queryKey: ['my-assets'],
     queryFn: () => assignmentsApi.myAssets(true),
     enabled: role === 'employee',
   })
-
   const { data: warrantyExpiring } = useQuery({
     queryKey: ['warranty-expiring'],
     queryFn: () => assetsApi.list({ warranty_expiring_days: 90, page_size: 5 }),
     enabled: ['coo', 'it_head', 'management'].includes(role ?? ''),
   })
-
   const { data: upcomingMaintenance } = useQuery({
     queryKey: ['maintenance', 'upcoming'],
     queryFn: () => maintenanceApi.upcoming(30),
     enabled: ['coo', 'it_head', 'it_team', 'management'].includes(role ?? ''),
   })
-
   const { data: recentAssets } = useQuery({
     queryKey: ['assets', 'recent'],
     queryFn: () => assetsApi.list({ page_size: 5 }),
   })
 
+  const firstName = user?.full_name?.split(' ')[0] ?? 'there'
+
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-gray-900">
-          Good morning, {user?.full_name?.split(' ')[0]} 👋
+      {/* Page header — rendered on dark gradient */}
+      <div style={{ marginBottom: '40px' }}>
+        <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', marginBottom: '4px', fontWeight: 500 }}>
+          Pages / Dashboard
+        </p>
+        <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 700, margin: 0 }}>
+          Welcome back, {firstName} 👋
         </h1>
-        <p className="text-sm text-gray-500 mt-0.5 capitalize">
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px', marginTop: '4px', textTransform: 'capitalize' }}>
           {role?.replace('_', ' ')} Dashboard
         </p>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Stat cards — floated over the gradient */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '24px' }}>
         <StatCard
           label="Total Assets"
           value={assetsData?.meta?.total ?? '—'}
           icon={Server}
-          color="bg-blue-500"
+          colorClass="stat-icon-box-info"
           to="/assets"
         />
-        {role !== 'employee' && (
+        {role !== 'employee' ? (
           <StatCard
             label="Pending Approvals"
             value={pendingOnboarding?.meta?.total ?? '—'}
             icon={Clock}
-            color="bg-yellow-500"
+            colorClass="stat-icon-box-warning"
             to="/onboarding"
           />
-        )}
-        {role === 'employee' && (
+        ) : (
           <StatCard
             label="My Assets"
             value={myAssets?.length ?? '—'}
             icon={Package}
-            color="bg-green-500"
+            colorClass="stat-icon-box-success"
             to="/my-assets"
           />
         )}
         <StatCard
-          label="Warranty Expiring (90d)"
+          label="Warranty Expiring"
           value={warrantyExpiring?.meta?.total ?? '—'}
           icon={AlertTriangle}
-          color="bg-red-500"
+          colorClass="stat-icon-box-danger"
           to="/assets"
+          change="Next 90 days"
         />
         <StatCard
-          label="Maintenance Due (30d)"
+          label="Maintenance Due"
           value={upcomingMaintenance?.length ?? '—'}
           icon={CheckCircle}
-          color="bg-purple-500"
+          colorClass="stat-icon-box-purple"
           to="/maintenance"
+          change="Next 30 days"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        {/* Recent assets */}
+      {/* Lower cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        {/* Recent Assets */}
         <div className="card">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="font-medium text-gray-900">Recent Assets</h2>
-            <Link to="/assets" className="text-xs text-primary-600 hover:underline">View all</Link>
+          <div style={{
+            padding: '20px 20px 16px',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            borderBottom: '1px solid #f0f2f5',
+          }}>
+            <div>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#344767', margin: 0 }}>Recent Assets</h3>
+              <p style={{ fontSize: '12px', color: '#8392ab', marginTop: '2px' }}>Latest registered assets</p>
+            </div>
+            <Link to="/assets" style={{
+              fontSize: '12px', fontWeight: 600, color: '#344767',
+              textDecoration: 'none', padding: '6px 14px', borderRadius: '6px',
+              background: '#f0f2f5', transition: 'background 0.15s',
+            }}>
+              View all
+            </Link>
           </div>
-          <div className="divide-y divide-gray-50">
+          <div>
             {recentAssets?.data?.map((asset) => (
               <Link
                 key={asset.id}
                 to={`/assets/${asset.id}`}
-                className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 20px', textDecoration: 'none',
+                  borderBottom: '1px solid #f8f9fa', transition: 'background 0.12s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#fafbfc')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{asset.name}</p>
-                  <p className="text-xs text-gray-400">{asset.asset_id} · {asset.category.name}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0,
+                    background: 'linear-gradient(195deg, #49a3f1 0%, #1A73E8 100%)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(26,115,232,0.3)',
+                  }}>
+                    <Server size={15} color="white" />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: '#344767', margin: 0 }}>{asset.name}</p>
+                    <p style={{ fontSize: '11px', color: '#8392ab', marginTop: '2px' }}>
+                      {asset.asset_id} · {asset.category.name}
+                    </p>
+                  </div>
                 </div>
                 <AssetStatusBadge status={asset.status} />
               </Link>
             ))}
             {!recentAssets?.data?.length && (
-              <p className="px-5 py-6 text-sm text-gray-400 text-center">No assets yet</p>
+              <p style={{ padding: '32px', textAlign: 'center', color: '#8392ab', fontSize: '13px' }}>
+                No assets yet
+              </p>
             )}
           </div>
         </div>
 
-        {/* Pending onboarding */}
-        {role !== 'employee' && (
+        {/* Pending Onboarding or Warranty */}
+        {role !== 'employee' ? (
           <div className="card">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-medium text-gray-900">Pending Onboarding</h2>
-              <Link to="/onboarding" className="text-xs text-primary-600 hover:underline">View all</Link>
+            <div style={{
+              padding: '20px 20px 16px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              borderBottom: '1px solid #f0f2f5',
+            }}>
+              <div>
+                <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#344767', margin: 0 }}>Pending Onboarding</h3>
+                <p style={{ fontSize: '12px', color: '#8392ab', marginTop: '2px' }}>Requests awaiting approval</p>
+              </div>
+              <Link to="/onboarding" style={{
+                fontSize: '12px', fontWeight: 600, color: '#344767',
+                textDecoration: 'none', padding: '6px 14px', borderRadius: '6px',
+                background: '#f0f2f5',
+              }}>
+                View all
+              </Link>
             </div>
-            <div className="divide-y divide-gray-50">
+            <div>
               {pendingOnboarding?.data?.map((req) => (
                 <Link
                   key={req.id}
                   to={`/onboarding/${req.id}`}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 20px', textDecoration: 'none',
+                    borderBottom: '1px solid #f8f9fa', transition: 'background 0.12s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#fafbfc')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{req.employee_name}</p>
-                    <p className="text-xs text-gray-400">
-                      Requested by {req.requested_by.full_name} · {formatDate(req.created_at)}
-                    </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                      background: 'linear-gradient(195deg, #FFA726 0%, #FB8C00 100%)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '12px', fontWeight: 700, color: 'white',
+                      boxShadow: '0 2px 8px rgba(251,140,0,0.3)',
+                    }}>
+                      {req.employee_name?.charAt(0)?.toUpperCase() ?? '?'}
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '13px', fontWeight: 600, color: '#344767', margin: 0 }}>{req.employee_name}</p>
+                      <p style={{ fontSize: '11px', color: '#8392ab', marginTop: '2px' }}>
+                        By {req.requested_by.full_name} · {formatDate(req.created_at)}
+                      </p>
+                    </div>
                   </div>
                   <OnboardingStatusBadge status={req.status} />
                 </Link>
               ))}
               {!pendingOnboarding?.data?.length && (
-                <p className="px-5 py-6 text-sm text-gray-400 text-center">No pending requests</p>
+                <p style={{ padding: '32px', textAlign: 'center', color: '#8392ab', fontSize: '13px' }}>
+                  No pending requests
+                </p>
               )}
             </div>
           </div>
-        )}
-
-        {/* Warranty expiring */}
-        {['coo', 'it_head', 'management'].includes(role ?? '') && (
+        ) : (
           <div className="card">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-medium text-gray-900">Warranty Expiring Soon</h2>
-              <span className="text-xs text-gray-400">Next 90 days</span>
+            <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #f0f2f5' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#344767', margin: 0 }}>Your Assets</h3>
+              <p style={{ fontSize: '12px', color: '#8392ab', marginTop: '2px' }}>Assets assigned to you</p>
             </div>
-            <div className="divide-y divide-gray-50">
-              {warrantyExpiring?.data?.map((asset) => (
-                <Link
-                  key={asset.id}
-                  to={`/assets/${asset.id}`}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{asset.name}</p>
-                    <p className="text-xs text-gray-400">{asset.asset_id}</p>
+            <div>
+              {myAssets?.map((a: any) => (
+                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px', borderBottom: '1px solid #f8f9fa' }}>
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '8px',
+                    background: 'linear-gradient(195deg, #66bb6a 0%, #43a047 100%)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(67,160,71,0.3)',
+                  }}>
+                    <Package size={15} color="white" />
                   </div>
-                  <p className="text-xs text-red-500 font-medium">
-                    Expires {formatDate(asset.warranty_end)}
-                  </p>
-                </Link>
+                  <div>
+                    <p style={{ fontSize: '13px', fontWeight: 600, color: '#344767', margin: 0 }}>{a.asset?.name ?? 'Asset'}</p>
+                    <p style={{ fontSize: '11px', color: '#8392ab', marginTop: '2px' }}>{a.asset?.asset_id}</p>
+                  </div>
+                </div>
               ))}
-              {!warrantyExpiring?.data?.length && (
-                <p className="px-5 py-6 text-sm text-gray-400 text-center">No expiring warranties</p>
+              {!myAssets?.length && (
+                <p style={{ padding: '32px', textAlign: 'center', color: '#8392ab', fontSize: '13px' }}>No assets assigned</p>
               )}
             </div>
           </div>

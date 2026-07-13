@@ -4,16 +4,33 @@ interface Props {
   title: string
   subtitle?: string
   actions?: ReactNode
+  light?: boolean  // true = white text (when rendered on dark gradient)
 }
 
-export default function PageHeader({ title, subtitle, actions }: Props) {
+export default function PageHeader({ title, subtitle, actions, light }: Props) {
   return (
-    <div className="flex items-start justify-between mb-6">
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
-        {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+        <h1 style={{
+          fontSize: '20px', fontWeight: 700, margin: 0,
+          color: light ? '#ffffff' : '#344767',
+        }}>
+          {title}
+        </h1>
+        {subtitle && (
+          <p style={{
+            fontSize: '13px', marginTop: '4px',
+            color: light ? 'rgba(255,255,255,0.6)' : '#8392ab',
+          }}>
+            {subtitle}
+          </p>
+        )}
       </div>
-      {actions && <div className="flex items-center gap-3">{actions}</div>}
+      {actions && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {actions}
+        </div>
+      )}
     </div>
   )
 }

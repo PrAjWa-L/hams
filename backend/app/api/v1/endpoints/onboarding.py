@@ -25,7 +25,7 @@ router = APIRouter(tags=["Onboarding"])
     "",
     response_model=APIResponse[OnboardingResponse],
     status_code=status.HTTP_201_CREATED,
-    summary="HR creates onboarding request for a new employee",
+    summary="HOD submits onboarding request for a new joiner",
     dependencies=[Depends(require_permissions(Permission.ONBOARDING_CREATE))],
 )
 async def create_onboarding(
@@ -80,9 +80,7 @@ async def list_assignable_employees(
     from sqlalchemy import or_, select
     from app.models.onboarding_request import OnboardingRequest
 
-    filters = [
-        OnboardingRequest.status.in_(["approved", "completed"]),
-    ]
+    filters = [OnboardingRequest.status.in_(["approved", "completed"])]
     if search:
         term = f"%{search}%"
         filters.append(
@@ -99,7 +97,6 @@ async def list_assignable_employees(
         .order_by(OnboardingRequest.employee_name)
     )
     requests = result.scalars().all()
-
     employees = [
         {
             "id": str(r.id),
@@ -107,7 +104,7 @@ async def list_assignable_employees(
             "full_name": r.employee_name,
             "email": r.employee_email,
             "department": r.employee_department,
-            "designation": r.employee_designation if hasattr(r, "employee_designation") else None,
+            "designation": r.employee_designation,
             "status": r.status,
         }
         for r in requests
@@ -131,11 +128,55 @@ async def get_onboarding(
     return APIResponse.ok(data=OnboardingResponse.model_validate(req))
 
 
+# ── Stage 1: HR approves / rejects ───────────────────────────
+
+@router.post(
+    "/{request_id}/hr-approve",
+    response_model=APIResponse[OnboardingResponse],
+    status_code=status.HTTP_200_OK,
+    summary="HR gives stage-1 approval → forwards to COO",
+    dependencies=[Depends(require_permissions(Permission.ONBOARDING_HR_APPROVE))],
+)
+async def hr_approve_onboarding(
+    request_id: UUID,
+    payload: OnboardingApproveRequest,
+    current_user: AuthUser,
+    db: AsyncSession = Depends(get_db),
+):
+    svc = OnboardingService(db)
+    req = await svc.hr_approve(
+        request_id, payload, actor_id=current_user.id, actor_role=current_user.role
+    )
+    return APIResponse.ok(data=OnboardingResponse.model_validate(req))
+
+
+@router.post(
+    "/{request_id}/hr-reject",
+    response_model=APIResponse[OnboardingResponse],
+    status_code=status.HTTP_200_OK,
+    summary="HR rejects at stage 1",
+    dependencies=[Depends(require_permissions(Permission.ONBOARDING_HR_APPROVE))],
+)
+async def hr_reject_onboarding(
+    request_id: UUID,
+    payload: OnboardingRejectRequest,
+    current_user: AuthUser,
+    db: AsyncSession = Depends(get_db),
+):
+    svc = OnboardingService(db)
+    req = await svc.hr_reject(
+        request_id, payload, actor_id=current_user.id, actor_role=current_user.role
+    )
+    return APIResponse.ok(data=OnboardingResponse.model_validate(req))
+
+
+# ── Stage 2: COO final approve / reject ──────────────────────
+
 @router.post(
     "/{request_id}/approve",
     response_model=APIResponse[OnboardingResponse],
     status_code=status.HTTP_200_OK,
-    summary="COO approves onboarding request",
+    summary="COO gives final approval",
     dependencies=[Depends(require_permissions(Permission.ONBOARDING_APPROVE))],
 )
 async def approve_onboarding(
@@ -155,7 +196,7 @@ async def approve_onboarding(
     "/{request_id}/reject",
     response_model=APIResponse[OnboardingResponse],
     status_code=status.HTTP_200_OK,
-    summary="COO rejects onboarding request",
+    summary="COO rejects at stage 2",
     dependencies=[Depends(require_permissions(Permission.ONBOARDING_APPROVE))],
 )
 async def reject_onboarding(
@@ -171,11 +212,13 @@ async def reject_onboarding(
     return APIResponse.ok(data=OnboardingResponse.model_validate(req))
 
 
+# ── IT fulfils ────────────────────────────────────────────────
+
 @router.post(
     "/{request_id}/complete",
     response_model=APIResponse[OnboardingResponse],
     status_code=status.HTTP_200_OK,
-    summary="Mark onboarding as complete after all assets allocated",
+    summary="IT marks onboarding complete after all assets allocated",
     dependencies=[Depends(require_permissions(Permission.ASSIGNMENT_CREATE))],
 )
 async def complete_onboarding(

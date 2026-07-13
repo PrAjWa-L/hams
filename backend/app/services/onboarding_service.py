@@ -23,8 +23,12 @@ logger = get_logger(__name__)
 
 _LOAD_OPTS = [
     selectinload(OnboardingRequest.requested_by),
+    selectinload(OnboardingRequest.hr_approved_by),
     selectinload(OnboardingRequest.approved_by),
 ]
+
+# Roles allowed to submit onboarding requests (HODs)
+_HOD_ROLES = (Role.IT_HEAD, Role.MANAGEMENT, Role.COO)
 
 
 class OnboardingService:
@@ -32,13 +36,14 @@ class OnboardingService:
         self.db = db
         self.audit = AuditService(db)
 
-    # ── Create (HR / COO) ─────────────────────────────────────
+    # ── Create (HOD) ──────────────────────────────────────────
+    # HOD submits → status: pending_hr_approval
 
     async def create(
         self, data: OnboardingCreateRequest, actor_id: UUID, actor_role: str
     ) -> OnboardingRequest:
-        if actor_role not in (Role.HR, Role.COO):
-            raise ForbiddenException(detail="Only HR or COO can create onboarding requests")
+        if Role(actor_role) not in _HOD_ROLES:
+            raise ForbiddenException(detail="Only HODs (IT Head / Management / COO) can submit onboarding requests")
 
         req = OnboardingRequest(
             employee_name=data.employee_name,
@@ -48,7 +53,7 @@ class OnboardingService:
             employee_designation=data.employee_designation,
             employee_department=data.employee_department,
             requested_by_id=actor_id,
-            status="pending_approval",
+            status="pending_hr_approval",
             asset_requirements=[r.model_dump() for r in data.asset_requirements],
             join_date=data.join_date,
             notes=data.notes,
@@ -64,23 +69,87 @@ class OnboardingService:
             after_state={
                 "employee_emp_id": data.employee_emp_id,
                 "employee_name": data.employee_name,
-                "status": "pending_approval",
+                "status": "pending_hr_approval",
             },
         )
         logger.info("onboarding_created", request_id=str(req.id))
         return await self._load(req.id)
 
-    # ── Approve (COO) ─────────────────────────────────────────
+    # ── Stage 1: HR approves → pending_coo_approval ───────────
+
+    async def hr_approve(
+        self, request_id: UUID, data: OnboardingApproveRequest, actor_id: UUID, actor_role: str
+    ) -> OnboardingRequest:
+        if Role(actor_role) != Role.HR:
+            raise ForbiddenException(detail="Only HR can give stage-1 approval")
+
+        req = await self._get_or_raise(request_id)
+        # Accept both new and legacy status
+        if req.status not in ("pending_hr_approval", "pending_approval"):
+            raise BadRequestException(detail=f"Request is '{req.status}', expected pending_hr_approval")
+
+        before = {"status": req.status}
+        req.status = "pending_coo_approval"
+        req.hr_approved_by_id = actor_id
+        req.hr_approved_at = datetime.now(timezone.utc)
+        if data.notes:
+            req.notes = (req.notes or "") + f"\n[HR] {data.notes}"
+
+        self.db.add(req)
+        await self.db.flush()
+
+        await self.audit.log(
+            actor_id=actor_id,
+            entity_type="onboarding_request",
+            entity_id=req.id,
+            action="hr_approve",
+            before_state=before,
+            after_state={"status": "pending_coo_approval"},
+        )
+        logger.info("onboarding_hr_approved", request_id=str(request_id))
+        return await self._load(req.id)
+
+    # ── Stage 1: HR rejects ───────────────────────────────────
+
+    async def hr_reject(
+        self, request_id: UUID, data: OnboardingRejectRequest, actor_id: UUID, actor_role: str
+    ) -> OnboardingRequest:
+        if Role(actor_role) != Role.HR:
+            raise ForbiddenException(detail="Only HR can reject at stage 1")
+
+        req = await self._get_or_raise(request_id)
+        if req.status not in ("pending_hr_approval", "pending_approval"):
+            raise BadRequestException(detail=f"Request is '{req.status}', expected pending_hr_approval")
+
+        before = {"status": req.status}
+        req.status = "rejected"
+        req.rejection_reason = data.rejection_reason
+
+        self.db.add(req)
+        await self.db.flush()
+
+        await self.audit.log(
+            actor_id=actor_id,
+            entity_type="onboarding_request",
+            entity_id=req.id,
+            action="hr_reject",
+            before_state=before,
+            after_state={"status": "rejected", "reason": data.rejection_reason},
+        )
+        logger.info("onboarding_hr_rejected", request_id=str(request_id))
+        return await self._load(req.id)
+
+    # ── Stage 2: COO final approve ────────────────────────────
 
     async def approve(
         self, request_id: UUID, data: OnboardingApproveRequest, actor_id: UUID, actor_role: str
     ) -> OnboardingRequest:
-        if actor_role != Role.COO:
-            raise ForbiddenException(detail="Only COO can approve onboarding requests")
+        if Role(actor_role) != Role.COO:
+            raise ForbiddenException(detail="Only COO can give final approval")
 
         req = await self._get_or_raise(request_id)
-        if req.status != "pending_approval":
-            raise BadRequestException(detail=f"Request is '{req.status}', not pending approval")
+        if req.status != "pending_coo_approval":
+            raise BadRequestException(detail=f"Request is '{req.status}', expected pending_coo_approval")
 
         before = {"status": req.status}
         req.status = "approved"
@@ -96,24 +165,24 @@ class OnboardingService:
             actor_id=actor_id,
             entity_type="onboarding_request",
             entity_id=req.id,
-            action="approve",
+            action="coo_approve",
             before_state=before,
             after_state={"status": "approved"},
         )
-        logger.info("onboarding_approved", request_id=str(request_id))
+        logger.info("onboarding_coo_approved", request_id=str(request_id))
         return await self._load(req.id)
 
-    # ── Reject (COO) ──────────────────────────────────────────
+    # ── Stage 2: COO rejects ──────────────────────────────────
 
     async def reject(
         self, request_id: UUID, data: OnboardingRejectRequest, actor_id: UUID, actor_role: str
     ) -> OnboardingRequest:
-        if actor_role != Role.COO:
-            raise ForbiddenException(detail="Only COO can reject onboarding requests")
+        if Role(actor_role) != Role.COO:
+            raise ForbiddenException(detail="Only COO can reject at stage 2")
 
         req = await self._get_or_raise(request_id)
-        if req.status != "pending_approval":
-            raise BadRequestException(detail=f"Request is '{req.status}', not pending approval")
+        if req.status != "pending_coo_approval":
+            raise BadRequestException(detail=f"Request is '{req.status}', expected pending_coo_approval")
 
         before = {"status": req.status}
         req.status = "rejected"
@@ -126,11 +195,11 @@ class OnboardingService:
             actor_id=actor_id,
             entity_type="onboarding_request",
             entity_id=req.id,
-            action="reject",
+            action="coo_reject",
             before_state=before,
             after_state={"status": "rejected", "reason": data.rejection_reason},
         )
-        logger.info("onboarding_rejected", request_id=str(request_id))
+        logger.info("onboarding_coo_rejected", request_id=str(request_id))
         return await self._load(req.id)
 
     # ── Mark complete (IT Head) ───────────────────────────────
@@ -138,7 +207,7 @@ class OnboardingService:
     async def mark_complete(self, request_id: UUID, actor_id: UUID) -> OnboardingRequest:
         req = await self._get_or_raise(request_id)
         if req.status not in ("approved", "in_progress"):
-            raise BadRequestException(detail="Request must be approved before completing")
+            raise BadRequestException(detail="Request must be COO-approved before completing")
 
         req.status = "completed"
         req.completed_at = datetime.now(timezone.utc)

@@ -26,46 +26,40 @@ export default function DataTable<T>({
   emptyMessage = 'No records found',
 }: Props<T>) {
   return (
-    <div className="card overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+    <div className="card" style={{ overflow: 'hidden' }}>
+      <div style={{ overflowX: 'auto' }}>
+        <table className="ct-table">
           <thead>
-            <tr className="border-b border-gray-100 bg-gray-50">
+            <tr>
               {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  style={{ width: col.width }}
-                >
+                <th key={col.key} style={{ width: col.width }}>
                   {col.header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody>
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3">
-                      <div className="h-4 bg-gray-100 rounded animate-pulse" />
+                    <td key={col.key}>
+                      <div style={{ height: '14px', background: '#f0f2f5', borderRadius: '4px', animation: 'pulse 1.5s infinite' }} />
                     </td>
                   ))}
                 </tr>
               ))
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-10 text-center text-gray-400">
+                <td colSpan={columns.length} style={{ padding: '48px', textAlign: 'center', color: '#8392ab', fontSize: '13px' }}>
                   {emptyMessage}
                 </td>
               </tr>
             ) : (
               data.map((row, i) => (
-                <tr key={i} className="hover:bg-gray-50 transition-colors">
+                <tr key={i}>
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3 text-gray-700">
-                      {col.render(row)}
-                    </td>
+                    <td key={col.key}>{col.render(row)}</td>
                   ))}
                 </tr>
               ))
@@ -75,26 +69,37 @@ export default function DataTable<T>({
       </div>
 
       {meta && meta.total_pages > 1 && (
-        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between bg-white">
-          <p className="text-xs text-gray-500">
+        <div style={{
+          padding: '12px 20px', borderTop: '1px solid #f0f2f5',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <p style={{ fontSize: '12px', color: '#8392ab' }}>
             Showing {(meta.page - 1) * meta.page_size + 1}–
             {Math.min(meta.page * meta.page_size, meta.total)} of {meta.total}
           </p>
-          <div className="flex items-center gap-1">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             <button
               onClick={() => onPageChange?.(meta.page - 1)}
               disabled={!meta.has_prev}
-              className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                padding: '6px', borderRadius: '6px', border: 'none', background: 'transparent',
+                cursor: meta.has_prev ? 'pointer' : 'not-allowed', opacity: meta.has_prev ? 1 : 0.4,
+                color: '#344767',
+              }}
             >
               <ChevronLeft size={16} />
             </button>
-            <span className="px-3 text-xs text-gray-600">
+            <span style={{ padding: '0 10px', fontSize: '12px', color: '#344767', fontWeight: 600 }}>
               {meta.page} / {meta.total_pages}
             </span>
             <button
               onClick={() => onPageChange?.(meta.page + 1)}
               disabled={!meta.has_next}
-              className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                padding: '6px', borderRadius: '6px', border: 'none', background: 'transparent',
+                cursor: meta.has_next ? 'pointer' : 'not-allowed', opacity: meta.has_next ? 1 : 0.4,
+                color: '#344767',
+              }}
             >
               <ChevronRight size={16} />
             </button>

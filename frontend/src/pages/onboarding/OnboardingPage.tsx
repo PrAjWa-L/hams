@@ -9,7 +9,7 @@ import DataTable from '@/components/shared/DataTable'
 import { OnboardingStatusBadge } from '@/components/shared/StatusBadge'
 import { formatDate } from '@/lib/utils'
 
-const STATUSES = ['draft', 'pending_approval', 'approved', 'rejected', 'in_progress', 'completed']
+const STATUSES = ['pending_hr_approval', 'pending_coo_approval', 'approved', 'rejected', 'in_progress', 'completed']
 
 export default function OnboardingPage() {
   const { user } = useAuthStore()
@@ -21,7 +21,7 @@ export default function OnboardingPage() {
     queryFn: () => onboardingApi.list({ status: status || undefined }),
   })
 
-  const canCreate = ['hr', 'coo'].includes(user?.role ?? '')
+  const canCreate = ['it_head', 'management', 'coo'].includes(user?.role ?? '')
 
   return (
     <div>
