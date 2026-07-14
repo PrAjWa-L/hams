@@ -5,15 +5,45 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { assetsApi } from '@/api/assets'
-import { departmentsApi, vendorsApi } from '@/api/users'
+import { departmentsApi } from '@/api/users'
 import PageHeader from '@/components/shared/PageHeader'
 
-const MEDICAL_CATEGORIES = ['Medical Equipment', 'Dermatology Machine', 'Diagnostic Device']
+const CATEGORY_GROUPS: Record<string, string[]> = {
+  'Medical Equipment': [
+    'Dermatology Machine',
+    'Diagnostic Device',
+    'Surgical Equipment',
+    'Patient Monitoring',
+    'Imaging Equipment',
+    'Lab Equipment',
+    'Other',
+  ],
+  IT: [
+    'Laptop',
+    'Desktop',
+    'Monitor',
+    'Keyboard & Mouse',
+    'Printer',
+    'Scanner',
+    'Network Switch',
+    'Router',
+    'UPS',
+    'Server',
+    'Webcam',
+    'Headset',
+    'Docking Station',
+    'Tablet',
+    'Mobile Phone',
+    'Other',
+  ],
+}
 
 export default function AssetCreatePage() {
   const navigate = useNavigate()
+  const [topLevel, setTopLevel] = useState<string>('')          // 'Medical Equipment' | 'IT'
   const [selectedDomain, setSelectedDomain] = useState<string>('')
   const [selectedCategoryName, setSelectedCategoryName] = useState<string>('')
+  const [customCategory, setCustomCategory] = useState<string>('')
 
   const { register, handleSubmit, formState: { errors } } = useForm<Record<string, string | boolean>>()
 
@@ -27,17 +57,29 @@ export default function AssetCreatePage() {
     queryFn: departmentsApi.list,
   })
 
-  const { data: vendorsData } = useQuery({
-    queryKey: ['vendors'],
-    queryFn: () => vendorsApi.list(),
-  })
-
   const create = useMutation({
     mutationFn: (data: Record<string, string | boolean>) => {
       const payload: Record<string, unknown> = {}
       Object.entries(data).forEach(([k, v]) => {
         if (v !== '' && v !== undefined) payload[k] = v
       })
+      // Resolve the effective category name from two-step picker
+      const effectiveCategory = selectedCategoryName === 'Other'
+        ? customCategory
+        : selectedCategoryName === '' ? topLevel : selectedCategoryName
+      // Find matching DB category by name, or pass category_name as fallback
+      const matchedCat = categories?.find(
+        (c) => c.name.toLowerCase() === effectiveCategory.toLowerCase()
+      )
+      if (matchedCat) {
+        payload.category_id = matchedCat.id
+        delete payload.category_name
+      } else {
+        payload.category_name = effectiveCategory
+      }
+      delete payload.custom_category
+      // Always pass resolved domain
+      payload.domain = selectedDomain
       return assetsApi.create(payload as Parameters<typeof assetsApi.create>[0])
     },
     onSuccess: (asset) => {
@@ -51,7 +93,9 @@ export default function AssetCreatePage() {
     },
   })
 
-  const isMedical = MEDICAL_CATEGORIES.includes(selectedCategoryName)
+  const isMedical = topLevel === 'Medical Equipment'
+  const showSubCategory = !!topLevel
+  const showOtherInput = selectedCategoryName === 'Other'
 
   return (
     <div>
@@ -80,23 +124,74 @@ export default function AssetCreatePage() {
               />
               {errors.name && <p className="text-red-500 text-xs mt-1">Required</p>}
             </div>
-            <div>
-              <label className="label">Category *</label>
-              <select
-                {...register('category_id', { required: true })}
-                className="input"
-                onChange={(e) => {
-                  const cat = categories?.find((c) => c.id === e.target.value)
-                  setSelectedDomain(cat?.domain ?? '')
-                  setSelectedCategoryName(cat?.name ?? '')
-                }}
-              >
-                <option value="">Select category</option>
-                {categories?.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name} ({c.domain})</option>
-                ))}
-              </select>
-              {errors.category_id && <p className="text-red-500 text-xs mt-1">Required</p>}
+            <div className="col-span-2 grid grid-cols-2 gap-4">
+              {/* Step 1 — Top-level type */}
+              <div>
+                <label className="label">Category Type *</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {Object.keys(CATEGORY_GROUPS).map((group) => (
+                    <button
+                      key={group}
+                      type="button"
+                      onClick={() => {
+                        setTopLevel(group)
+                        setSelectedCategoryName('')
+                        setCustomCategory('')
+                        setSelectedDomain(group === 'IT' ? 'IT' : 'FACILITY')
+                      }}
+                      style={{
+                        flex: 1, padding: '10px 12px', borderRadius: '10px', border: '1.5px solid',
+                        borderColor: topLevel === group ? '#1d7d99' : '#dcebee',
+                        background: topLevel === group ? '#eaf7fb' : '#f4fafb',
+                        color: topLevel === group ? '#0f4c5c' : '#6f8d96',
+                        fontWeight: topLevel === group ? 700 : 500,
+                        fontSize: '13px', cursor: 'pointer', transition: 'all 0.15s',
+                        fontFamily: 'inherit',
+                        boxShadow: topLevel === group ? '0 0 0 3px rgba(29,125,153,0.12)' : 'none',
+                      }}
+                    >
+                      {group === 'IT' ? '💻 IT' : '🏥 Medical'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Step 2 — Sub-category */}
+              {showSubCategory && (
+                <div>
+                  <label className="label">Sub-category *</label>
+                  <select
+                    {...register('category_name', { required: true })}
+                    className="input"
+                    value={selectedCategoryName}
+                    onChange={(e) => {
+                      setSelectedCategoryName(e.target.value)
+                      setCustomCategory('')
+                    }}
+                  >
+                    <option value="">Select…</option>
+                    {CATEGORY_GROUPS[topLevel].map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                  {errors.category_name && <p className="text-red-500 text-xs mt-1">Required</p>}
+                </div>
+              )}
+
+              {/* Other — free text */}
+              {showOtherInput && (
+                <div className="col-span-2">
+                  <label className="label">Describe the category *</label>
+                  <input
+                    {...register('custom_category', { required: true })}
+                    className="input"
+                    placeholder={`e.g. ${topLevel === 'IT' ? 'KVM Switch' : 'Autoclave'}`}
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                  />
+                  {errors.custom_category && <p className="text-red-500 text-xs mt-1">Required</p>}
+                </div>
+              )}
             </div>
             <div>
               <label className="label">Brand</label>
@@ -129,12 +224,11 @@ export default function AssetCreatePage() {
             </div>
             <div>
               <label className="label">Vendor</label>
-              <select {...register('vendor_id')} className="input">
-                <option value="">Select vendor</option>
-                {vendorsData?.data?.map((v) => (
-                  <option key={v.id} value={v.id}>{v.name}</option>
-                ))}
-              </select>
+              <input {...register('vendor_name')} className="input" placeholder="e.g. Rashi Peripherals" />
+            </div>
+            <div>
+              <label className="label">Company Purchased From</label>
+              <input {...register('purchased_from')} className="input" placeholder="e.g. Amazon, direct from vendor" />
             </div>
             <div>
               <label className="label">Location Notes</label>

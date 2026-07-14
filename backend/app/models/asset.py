@@ -72,6 +72,8 @@ class Asset(AuditableBase, SoftDeleteMixin):
     purchase_cost: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
     po_reference: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     po_tool_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    vendor_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    purchased_from: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
 
     # ── Warranty ──────────────────────────────────────────────
     warranty_start: Mapped[Optional[date]] = mapped_column(Date, nullable=True)

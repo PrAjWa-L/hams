@@ -65,13 +65,29 @@ class AssetService:
         actor_id: UUID,
         actor_role: str,
     ) -> Asset:
-        # Verify category exists and actor can manage its domain
-        cat_result = await self.db.execute(
-            select(AssetCategory).where(AssetCategory.id == data.category_id)
-        )
-        cat = cat_result.scalar_one_or_none()
+        # Resolve category — by ID if provided, else by name
+        cat = None
+        if data.category_id:
+            cat_result = await self.db.execute(
+                select(AssetCategory).where(AssetCategory.id == data.category_id)
+            )
+            cat = cat_result.scalar_one_or_none()
+        elif data.category_name:
+            cat_result = await self.db.execute(
+                select(AssetCategory).where(
+                    AssetCategory.name.ilike(data.category_name)
+                )
+            )
+            cat = cat_result.scalar_one_or_none()
+            if not cat:
+                # Create a new category on the fly
+                domain = data.domain or 'IT'
+                cat = AssetCategory(name=data.category_name, domain=domain)
+                self.db.add(cat)
+                await self.db.flush()
+
         if not cat:
-            raise NotFoundException(detail="Asset category not found")
+            raise NotFoundException(detail="Asset category not found — provide category_id or category_name")
 
         self._check_domain_access(actor_role, cat.domain)
 
@@ -91,7 +107,8 @@ class AssetService:
 
         asset = Asset(
             asset_id=asset_id,
-            **data.model_dump(),
+            category_id=cat.id,
+            **data.model_dump(exclude={'category_id', 'category_name', 'domain'}),
         )
         self.db.add(asset)
         await self.db.flush()

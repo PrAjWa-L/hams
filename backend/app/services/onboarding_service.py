@@ -48,7 +48,7 @@ class OnboardingService:
         req = OnboardingRequest(
             employee_name=data.employee_name,
             employee_emp_id=data.employee_emp_id,
-            employee_email=str(data.employee_email),
+            employee_email=str(data.employee_email) if data.employee_email else '',
             employee_phone=data.employee_phone,
             employee_designation=data.employee_designation,
             employee_department=data.employee_department,

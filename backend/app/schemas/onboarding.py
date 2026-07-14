@@ -17,10 +17,10 @@ class AssetRequirementItem(BaseModel):
 
 
 class OnboardingCreateRequest(BaseModel):
-    # New joiner details — filled in by HR, no system account needed
+    """Submitted by a HOD (IT Head / Management) for a new joiner."""
     employee_name: str = Field(..., min_length=2, max_length=150)
     employee_emp_id: str = Field(..., min_length=1, max_length=50)
-    employee_email: EmailStr
+    employee_email: Optional[EmailStr] = None
     employee_phone: Optional[str] = Field(None, max_length=30)
     employee_designation: Optional[str] = Field(None, max_length=100)
     employee_department: Optional[str] = Field(None, max_length=100)
@@ -54,12 +54,14 @@ class OnboardingResponse(BaseModel):
     employee_department: Optional[str] = None
 
     # Workflow actors
-    requested_by: UserBrief
-    approved_by: Optional[UserBrief] = None
+    requested_by: UserBrief           # HOD who submitted
+    hr_approved_by: Optional[UserBrief] = None   # HR who stage-1 approved
+    approved_by: Optional[UserBrief] = None      # COO who final approved
 
     status: str
     asset_requirements: List[Dict[str, Any]]
     join_date: Optional[datetime] = None
+    hr_approved_at: Optional[datetime] = None
     approved_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     rejection_reason: Optional[str] = None

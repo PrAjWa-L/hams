@@ -37,7 +37,7 @@ class OnboardingRequest(AuditableBase):
     # ── New joiner details (filled by HOD) ───────────────────
     employee_name: Mapped[str] = mapped_column(String(150), nullable=False)
     employee_emp_id: Mapped[str] = mapped_column(String(50), nullable=False)
-    employee_email: Mapped[str] = mapped_column(String(150), nullable=False)
+    employee_email: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
     employee_phone: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     employee_designation: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     employee_department: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)

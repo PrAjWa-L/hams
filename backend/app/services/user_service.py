@@ -81,6 +81,7 @@ class UserService:
         search: Optional[str] = None,
     ) -> tuple[Sequence[User], int]:
         from sqlalchemy import func, or_
+
         filters = [User.is_deleted == False]  # noqa: E712
         if role:
             filters.append(User.role == role)
@@ -97,12 +98,22 @@ class UserService:
                     User.emp_id.ilike(term),
                 )
             )
-        return await self.repo.list(
-            offset=offset,
-            limit=limit,
-            filters=filters,
-            order_by=User.full_name,
+
+        count_query = select(func.count()).select_from(User)
+        for f in filters:
+            count_query = count_query.where(f)
+        total = (await self.db.execute(count_query)).scalar_one()
+
+        query = (
+            select(User)
+            .options(selectinload(User.department))
+            .where(*filters)
+            .order_by(User.full_name)
+            .offset(offset)
+            .limit(limit)
         )
+        result = await self.db.execute(query)
+        return result.scalars().all(), total
 
     async def update(
         self,

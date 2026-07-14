@@ -78,6 +78,8 @@ export default function AssetDetailPage() {
       label: asset?.label ?? '',
       notes: asset?.notes ?? '',
       warranty_end: asset?.warranty_end ?? '',
+      vendor_name: asset?.vendor_name ?? asset?.vendor?.name ?? '',
+      purchased_from: asset?.purchased_from ?? '',
       is_shared: asset?.is_shared ? 'true' : 'false',
     })
     setShowEditModal(true)
@@ -171,14 +173,13 @@ export default function AssetDetailPage() {
               ['Barcode', asset.barcode],
               ['Floor', asset.floor],
               ['Department', asset.department?.name],
-              ['Vendor', asset.vendor?.name],
+              ['Vendor', asset.vendor?.name ?? asset.vendor_name],
             ].map(([label, value]) => value && (
               <div key={label} className="flex justify-between">
                 <span className="text-xs text-gray-400">{label}</span>
                 <span className="text-sm text-gray-700 font-medium">{value}</span>
               </div>
-            ))}
-          </div>
+            ))}\n          </div>
 
           <div className="space-y-4">
             <div className="card p-5 space-y-3">
@@ -187,6 +188,7 @@ export default function AssetDetailPage() {
                 ['Purchase Date', formatDate(asset.purchase_date)],
                 ['Purchase Cost', formatCurrency(asset.purchase_cost)],
                 ['PO Reference', asset.po_reference],
+                ['Purchased From', asset.purchased_from],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between">
                   <span className="text-xs text-gray-400">{label}</span>
@@ -365,6 +367,8 @@ export default function AssetDetailPage() {
                 { key: 'os_name', label: 'OS' },
                 { key: 'label', label: 'Label' },
                 { key: 'warranty_end', label: 'Warranty End', type: 'date' },
+                { key: 'vendor_name', label: 'Vendor' },
+                { key: 'purchased_from', label: 'Company Purchased From' },
               ].map(({ key, label, type }) => (
                 <div key={key}>
                   <label className="label">{label}</label>

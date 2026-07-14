@@ -16,7 +16,9 @@ VALID_STATUSES = ("available", "assigned", "under_maintenance", "retired", "disp
 
 class AssetCreateRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=200)
-    category_id: UUID
+    category_id: Optional[UUID] = None           # resolved from DB by name if not provided
+    category_name: Optional[str] = Field(None, max_length=100)  # fallback free-text
+    domain: Optional[str] = Field(None, max_length=20)          # IT or FACILITY
     brand: Optional[str] = Field(None, max_length=100)
     model: Optional[str] = Field(None, max_length=150)
     serial_number: Optional[str] = Field(None, max_length=150)
@@ -25,6 +27,8 @@ class AssetCreateRequest(BaseModel):
     purchase_cost: Optional[Decimal] = Field(None, ge=0)
     po_reference: Optional[str] = Field(None, max_length=100)
     po_tool_url: Optional[str] = Field(None, max_length=500)
+    vendor_name: Optional[str] = Field(None, max_length=200)
+    purchased_from: Optional[str] = Field(None, max_length=200)
     warranty_start: Optional[date] = None
     warranty_end: Optional[date] = None
     amc_vendor: Optional[str] = Field(None, max_length=200)
@@ -65,6 +69,8 @@ class AssetUpdateRequest(BaseModel):
     purchase_cost: Optional[Decimal] = Field(None, ge=0)
     po_reference: Optional[str] = Field(None, max_length=100)
     po_tool_url: Optional[str] = Field(None, max_length=500)
+    vendor_name: Optional[str] = Field(None, max_length=200)
+    purchased_from: Optional[str] = Field(None, max_length=200)
     warranty_start: Optional[date] = None
     warranty_end: Optional[date] = None
     amc_vendor: Optional[str] = Field(None, max_length=200)
@@ -119,6 +125,8 @@ class AssetResponse(BaseModel):
     purchase_date: Optional[date] = None
     purchase_cost: Optional[Decimal] = None
     po_reference: Optional[str] = None
+    vendor_name: Optional[str] = None
+    purchased_from: Optional[str] = None
     po_tool_url: Optional[str] = None
     warranty_start: Optional[date] = None
     warranty_end: Optional[date] = None

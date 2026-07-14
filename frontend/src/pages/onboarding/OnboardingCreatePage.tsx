@@ -79,12 +79,26 @@ export default function OnboardingCreatePage() {
       prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r))
     )
 
-  const canSubmit =
-    form.employee_name &&
-    form.employee_emp_id &&
-    form.employee_email &&
-    requirements.some((r) => r.category) &&
-    !create.isPending
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+
+  const validate = (): boolean => {
+    const e: Record<string, string> = {}
+    if (!form.employee_name.trim()) e.employee_name = 'Name is required'
+    if (!form.employee_emp_id.trim()) e.employee_emp_id = 'Employee ID is required'
+    if (form.employee_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.employee_email.trim()))
+      e.employee_email = 'Enter a valid email address'
+    if (!requirements.some((r) => r.category))
+      e.requirements = 'At least one asset requirement is needed'
+    setFormErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const handleSubmit = () => {
+    if (!validate()) return
+    create.mutate()
+  }
+
+  const canSubmit = !create.isPending
 
   return (
     <div className="max-w-3xl">
@@ -109,6 +123,7 @@ export default function OnboardingCreatePage() {
                 Full Name <span className="text-red-500">*</span>
               </label>
               <input className="input" placeholder="e.g. Ravi Kumar" value={form.employee_name} onChange={set('employee_name')} />
+              {formErrors.employee_name && <p style={{color:'#ea0606',fontSize:'11px',marginTop:'4px'}}>{formErrors.employee_name}</p>}
             </div>
 
             <div>
@@ -116,13 +131,15 @@ export default function OnboardingCreatePage() {
                 Employee ID <span className="text-red-500">*</span>
               </label>
               <input className="input" placeholder="e.g. EMP-1042" value={form.employee_emp_id} onChange={set('employee_emp_id')} />
+              {formErrors.employee_emp_id && <p style={{color:'#ea0606',fontSize:'11px',marginTop:'4px'}}>{formErrors.employee_emp_id}</p>}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email <span className="text-red-500">*</span>
+                Email
               </label>
               <input type="email" className="input" placeholder="ravi.kumar@company.com" value={form.employee_email} onChange={set('employee_email')} />
+              {formErrors.employee_email && <p style={{color:'#ea0606',fontSize:'11px',marginTop:'4px'}}>{formErrors.employee_email}</p>}
             </div>
 
             <div>
@@ -161,6 +178,7 @@ export default function OnboardingCreatePage() {
             </button>
           </div>
 
+          {formErrors.requirements && <p style={{color:'#ea0606',fontSize:'12px',marginBottom:'8px'}}>{formErrors.requirements}</p>}
           <div className="space-y-3">
             {requirements.map((row, i) => (
               <div key={i} className="grid grid-cols-[1fr_120px_80px_1fr_36px] gap-2 items-start">
@@ -203,7 +221,7 @@ export default function OnboardingCreatePage() {
         {/* Actions */}
         <div className="flex justify-end gap-3">
           <Link to="/onboarding" className="btn-secondary">Cancel</Link>
-          <button onClick={() => create.mutate()} disabled={!canSubmit} className="btn-primary">
+          <button onClick={handleSubmit} disabled={!canSubmit} className="btn-primary">
             {create.isPending ? <Loader2 size={14} className="animate-spin" /> : null}
             Submit for Approval
           </button>
