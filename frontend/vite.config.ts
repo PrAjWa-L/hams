@@ -11,6 +11,18 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    watch: {
+      // Ignore everything outside src/ to prevent spurious reloads
+      ignored: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/*.py',
+        '**/*.log',
+        '**/__pycache__/**',
+        '**/scripts/**',
+        '**/.git/**',
+      ],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8000',

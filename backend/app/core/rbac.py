@@ -28,9 +28,9 @@ class AssetDomain(str, Enum):
 ROLE_DOMAIN_MAP: dict[Role, AssetDomain] = {
     Role.HR: AssetDomain.ALL,
     Role.COO: AssetDomain.ALL,
-    Role.IT_HEAD: AssetDomain.IT,
+    Role.IT_HEAD: AssetDomain.ALL,       # can register both IT and medical assets
     Role.IT_TEAM: AssetDomain.IT,
-    Role.MANAGEMENT: AssetDomain.FACILITY,
+    Role.MANAGEMENT: AssetDomain.ALL,    # facility + medical
     Role.EMPLOYEE: AssetDomain.ALL,
 }
 

@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import { useAuthStore } from '@/store/auth'
 
 const BASE_URL = '/api/v1'
 
@@ -29,6 +30,14 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = []
 }
 
+const forceLogout = () => {
+  // Clear Zustand store + localStorage so login page doesn't redirect back
+  useAuthStore.getState().clearAuth()
+  if (window.location.pathname !== '/login') {
+    window.location.href = '/login'
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -51,7 +60,7 @@ api.interceptors.response.use(
       if (!refreshToken) {
         processQueue(error, null)
         isRefreshing = false
-        window.location.href = '/login'
+        forceLogout()
         return Promise.reject(error)
       }
 
@@ -67,9 +76,7 @@ api.interceptors.response.use(
         return api(original)
       } catch (refreshError) {
         processQueue(refreshError, null)
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
-        window.location.href = '/login'
+        forceLogout()
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false
