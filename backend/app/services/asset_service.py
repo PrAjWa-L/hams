@@ -161,10 +161,12 @@ class AssetService:
         offset: int = 0,
         limit: int = 20,
         category_id: Optional[UUID] = None,
+        category_name: Optional[str] = None,
         department_id: Optional[UUID] = None,
         status: Optional[str] = None,
         domain: Optional[str] = None,
         floor: Optional[str] = None,
+        site: Optional[str] = None,
         search: Optional[str] = None,
         warranty_expiring_days: Optional[int] = None,
     ) -> tuple[Sequence[Asset], int]:
@@ -206,6 +208,12 @@ class AssetService:
         if floor:
             query = query.where(Asset.floor.ilike(f"%{floor}%"))
             count_query = count_query.where(Asset.floor.ilike(f"%{floor}%"))
+        if site:
+            query = query.where(Asset.location_notes.ilike(f"%{site}%"))
+            count_query = count_query.where(Asset.location_notes.ilike(f"%{site}%"))
+        if category_name:
+            query = query.where(AssetCategory.name.ilike(f"%{category_name}%"))
+            count_query = count_query.where(AssetCategory.name.ilike(f"%{category_name}%"))
         if search:
             term = f"%{search}%"
             search_filter = or_(

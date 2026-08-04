@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import io
+from datetime import datetime
 from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, status, File, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies.auth import AuthUser
@@ -58,10 +61,12 @@ async def list_assets(
     current_user: AuthUser,
     db: AsyncSession = Depends(get_db),
     category_id: UUID | None = Query(None),
+    category_name: str | None = Query(None),
     department_id: UUID | None = Query(None),
     status: str | None = Query(None),
     domain: str | None = Query(None, description="IT or FACILITY — COO only"),
     floor: str | None = Query(None),
+    site: str | None = Query(None, description="Branch filter: Cutis, HSR, Kochi"),
     search: str | None = Query(None, max_length=100),
     warranty_expiring_days: int | None = Query(
         None, ge=1, le=365, description="Assets with warranty expiring within N days"
@@ -73,10 +78,12 @@ async def list_assets(
         offset=pagination.offset,
         limit=pagination.limit,
         category_id=category_id,
+        category_name=category_name,
         department_id=department_id,
         status=status,
         domain=domain,
         floor=floor,
+        site=site,
         search=search,
         warranty_expiring_days=warranty_expiring_days,
     )
@@ -84,6 +91,124 @@ async def list_assets(
         items=[AssetListItem.model_validate(a) for a in assets],
         total=total,
         params=pagination,
+    )
+
+
+@router.get(
+    "/export",
+    summary="Export all assets to Excel (.xlsx)",
+    dependencies=[Depends(require_permissions(Permission.ASSET_READ))],
+)
+async def export_assets(
+    current_user: AuthUser,
+    db: AsyncSession = Depends(get_db),
+    status: str | None = Query(None),
+    domain: str | None = Query(None),
+    category_id: UUID | None = Query(None),
+    category_name: str | None = Query(None),
+    site: str | None = Query(None),
+    search: str | None = Query(None),
+):
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    svc = AssetService(db)
+    assets, _ = await svc.list_assets(
+        actor_role=current_user.role,
+        offset=0,
+        limit=10000,   # fetch all
+        status=status,
+        domain=domain,
+        category_id=category_id,
+        category_name=category_name,
+        site=site,
+        search=search,
+    )
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Assets"
+
+    HEADERS = [
+        "Asset ID", "Name", "Category", "Domain", "Status",
+        "Brand", "Model", "Serial Number", "Hostname",
+        "RAM", "HDD", "Processor", "OS",
+        "Floor", "Department", "Label",
+        "Purchase Date", "Purchase Cost", "PO Reference",
+        "Vendor", "Purchased From",
+        "Warranty End", "AMC End",
+        "Notes",
+    ]
+
+    # Header row styling
+    header_fill = PatternFill("solid", fgColor="0F4C5C")
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    for col, h in enumerate(HEADERS, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # Status colour map
+    STATUS_COLORS = {
+        "available":        "E8FCD4",
+        "assigned":         "DCE9FF",
+        "under_maintenance":"FFF5CC",
+        "retired":          "FDE7E7",
+    }
+
+    for row_idx, asset in enumerate(assets, 2):
+        row_data = [
+            asset.asset_id,
+            asset.name,
+            asset.category.name if asset.category else "",
+            getattr(asset, "domain", ""),
+            asset.status,
+            getattr(asset, "brand", "") or "",
+            getattr(asset, "model", "") or "",
+            getattr(asset, "serial_number", "") or "",
+            getattr(asset, "hostname", "") or "",
+            getattr(asset, "ram", "") or "",
+            getattr(asset, "hdd", "") or "",
+            getattr(asset, "processor", "") or "",
+            getattr(asset, "os_name", "") or "",
+            getattr(asset, "floor", "") or "",
+            asset.department.name if getattr(asset, "department", None) else "",
+            getattr(asset, "label", "") or "",
+            str(asset.purchase_date) if getattr(asset, "purchase_date", None) else "",
+            str(asset.purchase_cost) if getattr(asset, "purchase_cost", None) else "",
+            getattr(asset, "po_reference", "") or "",
+            getattr(asset, "vendor_name", "") or "",
+            getattr(asset, "purchased_from", "") or "",
+            str(asset.warranty_end) if getattr(asset, "warranty_end", None) else "",
+            str(asset.amc_end) if getattr(asset, "amc_end", None) else "",
+            getattr(asset, "notes", "") or "",
+        ]
+        color = STATUS_COLORS.get(asset.status, "FFFFFF")
+        for col_idx, val in enumerate(row_data, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell.fill = PatternFill("solid", fgColor=color)
+            cell.font = Font(size=9)
+            cell.alignment = Alignment(vertical="center")
+
+    # Column widths
+    COL_WIDTHS = [12,28,16,8,14,14,16,18,20,8,10,22,16,10,18,12,14,12,14,18,18,14,12,35]
+    for i, w in enumerate(COL_WIDTHS, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.row_dimensions[1].height = 20
+    ws.freeze_panes = "A2"
+
+    # Save to buffer
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    filename = f"HAMS_Assets_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
