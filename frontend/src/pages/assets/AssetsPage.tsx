@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Upload, Monitor, Laptop, Printer, Download } from 'lucide-react'
+import { Boxes, Download, MapPin, Plus, Search, Upload } from 'lucide-react'
 import { assetsApi, type AssetFilters } from '@/api/assets'
 import { useAuthStore } from '@/store/auth'
 import DataTable from '@/components/shared/DataTable'
-import { AssetStatusBadge } from '@/components/shared/StatusBadge'
 import { formatDate } from '@/lib/utils'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -36,8 +35,8 @@ export default function AssetsPage() {
       if (filters.status) params.set('status', filters.status)
       if (filters.domain) params.set('domain', filters.domain)
       if (filters.category_id) params.set('category_id', filters.category_id)
-      if ((filters as any).category_name) params.set('category_name', (filters as any).category_name)
-      if ((filters as any).site) params.set('site', (filters as any).site)
+      if (filters.category_name) params.set('category_name', filters.category_name)
+      if (filters.site) params.set('site', filters.site)
       if (filters.search) params.set('search', filters.search)
       const resp = await fetch(`/api/v1/assets/export?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -58,7 +57,6 @@ export default function AssetsPage() {
   }
 
   const [filters, setFilters] = useState<AssetFilters>({ page: 1, page_size: 20 })
-  const [activeSite, setActiveSite] = useState<string>('')
   const [search, setSearch] = useState('')
 
   const { data, isLoading } = useQuery({
@@ -87,6 +85,42 @@ export default function AssetsPage() {
     queryFn: () => assetsApi.categories.list('IT'),
   })
 
+  const SITE_FILTERS = [
+    { label: 'Cutis', value: 'Cutis' },
+    { label: 'HSR', value: 'HSR' },
+    { label: 'Kochi', value: 'Kochi' },
+    { label: 'Chandra Layout', value: 'Chandra Layout' },
+  ]
+
+  // Each quick-filter count keeps the other active filters, while ignoring its
+  // own dimension. This makes the cards useful together (for example HSR + NAS).
+  const branchCountBase: AssetFilters = {
+    ...filters,
+    site: undefined,
+    page: 1,
+    page_size: 1,
+  }
+  const branchCountQueries = useQueries({
+    queries: SITE_FILTERS.map((site) => ({
+      queryKey: ['assets-count', 'site', site.value, branchCountBase],
+      queryFn: () => assetsApi.list({ ...branchCountBase, site: site.value }),
+    })),
+  })
+
+  const typeCountBase: AssetFilters = {
+    ...filters,
+    category_id: undefined,
+    category_name: undefined,
+    page: 1,
+    page_size: 1,
+  }
+  const typeCountQueries = useQueries({
+    queries: (categories ?? []).map((category) => ({
+      queryKey: ['assets-count', 'category', category.id, typeCountBase],
+      queryFn: () => assetsApi.list({ ...typeCountBase, category_id: category.id }),
+    })),
+  })
+
   const CATEGORY_FILTERS = [
     { label: 'Laptop',          name: 'Laptop' },
     { label: 'Desktop',         name: 'Desktop' },
@@ -100,14 +134,11 @@ export default function AssetsPage() {
     { label: 'NVR',             name: 'NVR' },
   ]
 
-  const SITE_FILTERS = [
-    { label: 'Cutis',           value: 'Cutis' },
-    { label: 'HSR',             value: 'HSR' },
-    { label: 'Kochi',           value: 'Kochi' },
-  ]
-
-  const activeCategoryName = (filters as any).category_name ?? ''
   const activeCategoryId = filters.category_id
+  const activeCategoryName = filters.category_name
+    ?? categories?.find((category) => category.id === activeCategoryId)?.name
+    ?? ''
+  const activeSite = filters.site ?? ''
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -190,6 +221,55 @@ export default function AssetsPage() {
         })}
       </div>
 
+      {/* ── Quick filters by workbook grouping ── */}
+      <div className="card" style={{ padding: '18px 20px', marginBottom: '20px' }}>
+        <div style={{ marginBottom: '16px' }}>
+          <p style={{ fontSize: '14px', fontWeight: 600, color: '#344767', marginBottom: '3px' }}>
+            Quick asset filters
+          </p>
+          <p style={{ fontSize: '11px', color: '#8392ab' }}>
+            Select a branch or asset type to narrow the registry. Select it again to clear it.
+          </p>
+        </div>
+
+        <QuickFilterSection title="Branch" icon={<MapPin size={14} />}>
+          {SITE_FILTERS.map((site, index) => (
+            <QuickFilterCard
+              key={site.value}
+              label={site.label}
+              count={branchCountQueries[index]?.data?.meta?.total}
+              active={activeSite === site.value}
+              onClick={() => setFilters((current) => ({
+                ...current,
+                site: current.site === site.value ? undefined : site.value,
+                page: 1,
+              }))}
+            />
+          ))}
+        </QuickFilterSection>
+
+        <QuickFilterSection title="Asset type" icon={<Boxes size={14} />}>
+          {(categories ?? []).map((category, index) => (
+            <QuickFilterCard
+              key={category.id}
+              label={category.name}
+              count={typeCountQueries[index]?.data?.meta?.total}
+              active={activeCategoryId === category.id || activeCategoryName === category.name}
+              onClick={() => setFilters((current) => {
+                const isActive = current.category_id === category.id
+                  || current.category_name === category.name
+                return {
+                  ...current,
+                  category_id: isActive ? undefined : category.id,
+                  category_name: undefined,
+                  page: 1,
+                }
+              })}
+            />
+          ))}
+        </QuickFilterSection>
+      </div>
+
       {/* ── Filters card — floats below the gradient ── */}
       <div className="card" style={{ padding: '16px 20px', marginBottom: '16px' }}>
 
@@ -204,8 +284,7 @@ export default function AssetsPage() {
                   key={site}
                   onClick={() => {
                     const val = site === 'All' ? '' : site
-                    setActiveSite(val)
-                    setFilters((f) => ({ ...f, site: val || undefined, page: 1 } as any))
+                    setFilters((f) => ({ ...f, site: val || undefined, page: 1 }))
                   }}
                   style={{
                     padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
@@ -228,7 +307,7 @@ export default function AssetsPage() {
           <p style={{ fontSize: '10px', fontWeight: 700, color: '#8392ab', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Category</p>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             <button
-              onClick={() => setFilters((f) => ({ ...f, category_id: undefined, category_name: undefined, page: 1 } as any))}
+              onClick={() => setFilters((f) => ({ ...f, category_id: undefined, category_name: undefined, page: 1 }))}
               style={{
                 padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
                 border: '1.5px solid', cursor: 'pointer', transition: 'all 0.15s',
@@ -250,7 +329,7 @@ export default function AssetsPage() {
                     category_id: undefined,
                     category_name: active ? undefined : name,
                     page: 1,
-                  } as any))}
+                  }))}
                   style={{
                     padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 600,
                     border: '1.5px solid', cursor: 'pointer', transition: 'all 0.15s',
@@ -396,5 +475,80 @@ export default function AssetsPage() {
         />
       </div>
     </div>
+  )
+}
+
+function QuickFilterSection({
+  title,
+  icon,
+  children,
+}: {
+  title: string
+  icon: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <div style={{ marginTop: '14px' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px',
+        color: '#8392ab', fontSize: '10px', fontWeight: 700,
+        textTransform: 'uppercase', letterSpacing: '0.06em',
+      }}>
+        {icon}
+        <span>{title}</span>
+      </div>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+        gap: '8px',
+      }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function QuickFilterCard({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string
+  count?: number
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      style={{
+        minWidth: 0,
+        padding: '10px 12px',
+        borderRadius: '8px',
+        border: `1.5px solid ${active ? '#1d7d99' : '#e9ecef'}`,
+        background: active ? '#e8f5f8' : '#ffffff',
+        color: active ? '#17667c' : '#344767',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        textAlign: 'left',
+        transition: 'border-color 0.15s, background 0.15s, transform 0.15s',
+      }}
+    >
+      <span style={{
+        display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        fontSize: '11px', fontWeight: 600, marginBottom: '4px',
+      }}>
+        {label}
+      </span>
+      <span style={{
+        display: 'block', fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '18px', fontWeight: 500, lineHeight: 1,
+      }}>
+        {count ?? '—'}
+      </span>
+    </button>
   )
 }

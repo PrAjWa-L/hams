@@ -23,9 +23,11 @@ export interface AssetFilters {
   search?: string
   status?: string
   category_id?: string
+  category_name?: string
   department_id?: string
   domain?: string
   floor?: string
+  site?: string
   warranty_expiring_days?: number
 }
 
